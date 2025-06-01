@@ -108,10 +108,48 @@
             background-color: #e9ecef;
             border-radius: var(--border-radius);
             min-height: 50px;
-            white-space: pre-wrap; 
+            /* white-space: pre-wrap;  Remove this as Markdown parsing will handle new lines */
             word-wrap: break-word;
             font-size: 0.95em;
         }
+        /* Styles for Markdown elements within info-display-area */
+        .info-display-area h1, 
+        .info-display-area h2, 
+        .info-display-area h3, 
+        .info-display-area h4, 
+        .info-display-area h5, 
+        .info-display-area h6 {
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+            color: var(--primary-color); /* Headings can use primary color */
+            font-weight: bold;
+        }
+        .info-display-area h1 { font-size: 1.5em; }
+        .info-display-area h2 { font-size: 1.3em; }
+        .info-display-area h3 { font-size: 1.2em; }
+        .info-display-area p {
+            margin-top: 0.5em;
+            margin-bottom: 0.5em;
+            line-height: 1.6;
+        }
+        .info-display-area ul, .info-display-area ol {
+            margin-top: 0.5em;
+            margin-bottom: 0.5em;
+            padding-left: 20px;
+        }
+        .info-display-area li {
+            margin-bottom: 0.3em;
+        }
+        .info-display-area hr {
+            border: 0;
+            height: 1px;
+            background-color: #ccc;
+            margin: 1em 0;
+        }
+        .info-display-area strong {
+            font-weight: bold;
+        }
+
         .hidden {
             display: none !important;
         }
@@ -188,6 +226,9 @@
         <button id="backToSettings" class="secondary" data-i18n="backToSettingsButton" style="margin-top: 20px;">返回設定</button>
     </div>
 
+    <!-- Include Marked.js for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
     <script>
         const settingsView = document.getElementById('settingsView');
         const appView = document.getElementById('appView');
@@ -233,14 +274,14 @@
                 alert_apiError: 'API 請求失敗，再試一次看看？ ',
                 alert_noImage: '要先拍張照片才能分析啦！',
                 promptHelperText: '照片拍好囉！按「這是什麼？」讓 AI 幫你看。',
-                apiPrompt: `這張照片裡是什麼東西？請你嚴格依照以下「回覆樣板」的格式，並使用輕鬆、口語化的台灣用語（繁體中文）來回答。請根據圖片內容填寫 [方括號] 中的資訊。如果某項資訊在圖片中無法辨識，請在對應的 [方括號] 中填寫「看不太清楚耶」或「圖片裡沒有顯示價格喔」。
+                apiPrompt: `這張照片裡是什麼東西？請你嚴格依照以下「回覆樣板」的格式，並使用輕鬆、口語化的台灣用語（繁體中文）來回答。請根據圖片內容填寫 [方括號] 中的資訊。如果某項資訊在圖片中無法辨識，請在對應的 [方括號] 中填寫「看不太清楚耶」或「圖片裡沒有顯示喔」。如果沒有特別的品牌或型號資訊，該部分也填寫「看不太清楚耶」。
 
 回覆樣板：
 這叫做「[物品的台灣口語化通稱或品名]」。
 用途（或主要成分，依圖片判斷）是「[描述用途/主要成分/特色]」。
-價格「[如果圖片中有價格請提供，若無則填寫上述提示，例如：約 NT$XXX元 或 價格未顯示]」。
+價格「[如果圖片中有價格請提供，若無則填寫上述提示，例如：約 NT$XXX元 或 價格未顯示喔]」。
 
-如果圖片中有清晰的品牌名稱、型號或其他重要文字，請在最後補充一行：「其他觀察到的資訊有：[品牌、型號等文字]」。
+如果圖片中有清晰的品牌名稱、型號或其他重要文字，請在最後補充一行：「其他觀察到的資訊有：[品牌、型號等文字，若無則填寫 看不太清楚耶]」。
 請確保回答自然流暢，謝謝！`,
                 apiResponsePrefix: 'AI 說：\n',
                 tellMeMoreButtonLabel: '告訴我更多關於它',
@@ -250,7 +291,7 @@
 - **保養存放**（如果適用）：如何保養、清潔或存放這個物品？
 - **哪裡買/取得**：通常可以在哪類商店或地方找到它？
 - **相關提醒**：使用上有沒有什麼需要特別注意的地方？
-請用輕鬆口語、條理分明的台灣中文來介紹，讓內容更豐富實用。如果某些方面不適用或資訊不足，可以略過或說明。`,
+請用輕鬆口語、條理分明的台灣中文來介紹，讓內容更豐富實用。如果某些方面不適用或資訊不足，可以略過或說明。請使用 Markdown 格式（例如標題、列表、粗體）來讓內容更易讀，但不要使用太複雜的 Markdown 符號。`,
                 moreInfoPlaceholder: '更多詳細資訊會顯示在這裡～',
                 moreInfoPrefix: 'AI 補充說明：\n'
             },
@@ -269,14 +310,14 @@
                 alert_apiError: 'API request failed. Try again? ',
                 alert_noImage: 'Please capture an image first!',
                 promptHelperText: 'Photo captured! Click "What\'s this?" for AI to analyze.',
-                apiPrompt: `What is in this picture? Please strictly follow the "Response Template" format below and use simple, clear English. Fill in the information in [square brackets] based on the image content. If some information cannot be identified from the image, please write "Not clear" or "Price not shown in image" in the corresponding [bracket].
+                apiPrompt: `What is in this picture? Please strictly follow the "Response Template" format below and use simple, clear English. Fill in the information in [square brackets] based on the image content. If some information cannot be identified from the image, please write "Not clear" or "Not shown in image" in the corresponding [bracket]. If no specific brand or model information is available, also write "Not clear".
 
 Response Template:
 This is called "[common name or product name]".
 Its purpose (or main ingredients, judge by image) is "[describe purpose/main ingredients/features]".
 The price is "[provide if price is visible in image, otherwise use above hints, e.g., approx. $XX or Price not shown]".
 
-If there are clear brand names, model numbers, or other important text in the image, add a line at the end: "Other observed information: [brand, model, etc.]".
+If there are clear brand names, model numbers, or other important text in the image, add a line at the end: "Other observed information: [brand, model, etc., if none then write Not clear]".
 Please ensure the answer is natural and fluent. Thanks!`,
                 apiResponsePrefix: 'AI says:\n',
                 tellMeMoreButtonLabel: 'Tell me more about it',
@@ -286,12 +327,11 @@ Please ensure the answer is natural and fluent. Thanks!`,
 - **Maintenance/Storage** (if applicable): How to maintain, clean, or store this item?
 - **Where to buy/get it**: Where can this item typically be found or purchased?
 - **Relevant reminders**: Are there any special precautions for use?
-Please use clear, well-organized English to introduce, making the content richer and more practical. If some aspects are not applicable or information is insufficient, you can skip or explain.`,
+Please use clear, well-organized English to introduce, making the content richer and more practical. If some aspects are not applicable or information is insufficient, you can skip or explain. Please use Markdown format (e.g., headings, lists, bold text) to make the content more readable, but avoid overly complex Markdown symbols.`,
                 moreInfoPlaceholder: 'More detailed information will appear here!',
                 moreInfoPrefix: 'AI adds:\n'
             },
-            // Add similar translations for ja and ko for apiPrompt, tellMeMoreButtonLabel, apiPromptMoreInfo, moreInfoPlaceholder, moreInfoPrefix
-            'ja': { // Example, needs full translation
+            'ja': {
                 apiKeyLabel: 'APIキー:',
                 languageLabel: 'ターゲット言語:',
                 saveSettingsButton: '設定を保存して開始',
@@ -306,14 +346,14 @@ Please use clear, well-organized English to introduce, making the content richer
                 alert_apiError: 'APIリクエストに失敗しました。もう一度試しますか？',
                 alert_noImage: 'まず画像を撮影してください！',
                 promptHelperText: '写真が撮影されました。「これは何？」をクリックしてAIに解析させてください。',
-                apiPrompt: `この写真には何が写っていますか？以下の「回答テンプレート」の形式に厳密に従い、わかりやすく口語的な日本語で回答してください。画像の内容に基づいて[角括弧]内の情報を記入してください。画像から情報が特定できない場合は、対応する[角括弧]に「不明瞭です」または「価格は画像に表示されていません」と記入してください。
+                apiPrompt: `この写真には何が写っていますか？以下の「回答テンプレート」の形式に厳密に従い、わかりやすく口語的な日本語で回答してください。画像の内容に基づいて[角括弧]内の情報を記入してください。画像から情報が特定できない場合は、対応する[角括弧]に「不明瞭です」または「画像に表示されていません」と記入してください。特定のブランドやモデル情報がない場合も「不明瞭です」と記入してください。
 
 回答テンプレート：
 これは「[物品の一般的な呼称または品名]」と呼ばれます。
 用途（または主な成分、画像から判断）は「[用途/主な成分/特徴を記述]」です。
-価格は「[画像に価格が表示されていれば記入、なければ上記のヒントを使用。例：約XXX円または価格未表示]」です。
+価格は「[画像に価格が表示されていれば記入、なければ上記のヒントを使用。例：約XXX円または価格未表示です]」です。
 
-画像に明確なブランド名、モデル番号、その他の重要なテキストがある場合は、最後に一行追加してください：「その他観察された情報：[ブランド、モデルなど]」。
+画像に明確なブランド名、モデル番号、その他の重要なテキストがある場合は、最後に一行追加してください：「その他観察された情報：[ブランド、モデルなど、なければ不明瞭です]」。
 回答は自然で流暢になるようお願いします。ありがとうございます！`,
                 apiResponsePrefix: 'AIの解析：\n',
                 tellMeMoreButtonLabel: 'もっと詳しく教えて',
@@ -323,11 +363,11 @@ Please use clear, well-organized English to introduce, making the content richer
 - **メンテナンス/保管**（該当する場合）：このアイテムをどのように維持、清掃、または保管しますか？
 - **購入/入手場所**：このアイテムは通常どこで見つけたり購入したりできますか？
 - **関連する注意点**：使用にあたって特に注意すべき点はありますか？
-わかりやすく整理された日本語で紹介し、内容をより豊かで実用的なものにしてください。一部の側面が該当しない場合や情報が不十分な場合は、スキップまたは説明してください。`,
+わかりやすく整理された日本語で紹介し、内容をより豊かで実用的なものにしてください。一部の側面が該当しない場合や情報が不十分な場合は、スキップまたは説明してください。内容を読みやすくするためにMarkdown形式（例：見出し、リスト、太字）を使用してください。ただし、複雑すぎるMarkdown記号は避けてください。`,
                 moreInfoPlaceholder: 'さらに詳しい情報はこちらに表示されます！',
                 moreInfoPrefix: 'AIの補足説明：\n'
             },
-            'ko': { // Example, needs full translation
+            'ko': {
                 apiKeyLabel: 'API 키:',
                 languageLabel: '대상 언어:',
                 saveSettingsButton: '설정 저장 및 시작',
@@ -342,14 +382,14 @@ Please use clear, well-organized English to introduce, making the content richer
                 alert_apiError: 'API 요청에 실패했습니다. 다시 시도하시겠습니까? ',
                 alert_noImage: '먼저 이미지를 촬영해주세요!',
                 promptHelperText: '사진이 촬영되었습니다! AI 분석을 위해 "이게 뭐예요?"를 클릭하세요.',
-                apiPrompt: `이 사진에 무엇이 있습니까? 아래 "응답 템플릿" 형식을 엄격히 따르고 간단하고 명확한 한국어로 답변하십시오. 이미지 내용을 기반으로 [대괄호] 안의 정보를 입력하십시오. 이미지에서 일부 정보를 식별할 수 없는 경우 해당 [대괄호]에 "명확하지 않음" 또는 "이미지에 가격이 표시되지 않음"이라고 작성하십시오.
+                apiPrompt: `이 사진에 무엇이 있습니까? 아래 "응답 템플릿" 형식을 엄격히 따르고 간단하고 명확한 한국어로 답변하십시오. 이미지 내용을 기반으로 [대괄호] 안의 정보를 입력하십시오. 이미지에서 일부 정보를 식별할 수 없는 경우 해당 [대괄호]에 "명확하지 않음" 또는 "이미지에 표시되지 않음"이라고 작성하십시오. 특정 브랜드나 모델 정보가 없는 경우에도 "명확하지 않음"이라고 작성하십시오.
 
 응답 템플릿:
 이것은 "[일반적인 이름 또는 제품 이름]"이라고 합니다.
 용도(또는 주요 성분, 이미지로 판단)는 "[용도/주요 성분/특징 설명]"입니다.
-가격은 "[이미지에 가격이 표시된 경우 제공, 그렇지 않은 경우 위 힌트 사용, 예: 약 XXX원 또는 가격 미표시]"입니다.
+가격은 "[이미지에 가격이 표시된 경우 제공, 그렇지 않은 경우 위 힌트 사용, 예: 약 XXX원 또는 가격이 표시되지 않음]"입니다.
 
-이미지에 명확한 브랜드 이름, 모델 번호 또는 기타 중요한 텍스트가 있는 경우 마지막에 한 줄을 추가하십시오: "기타 관찰된 정보: [브랜드, 모델 등]".
+이미지에 명확한 브랜드 이름, 모델 번호 또는 기타 중요한 텍스트가 있는 경우 마지막에 한 줄을 추가하십시오: "기타 관찰된 정보: [브랜드, 모델 등, 없는 경우 명확하지 않음]".
 답변이 자연스럽고 유창하도록 해주십시오. 감사합니다!`,
                 apiResponsePrefix: 'AI 설명：\n',
                 tellMeMoreButtonLabel: '자세히 알려줘',
@@ -359,7 +399,7 @@ Please use clear, well-organized English to introduce, making the content richer
 - **유지 관리/보관** (해당하는 경우): 이 항목을 어떻게 유지, 청소 또는 보관합니까?
 - **구입처/입수처**: 이 항목은 일반적으로 어디에서 찾거나 구입할 수 있습니까?
 - **관련 알림**: 사용 시 특별히 주의해야 할 사항이 있습니까?
-명확하고 잘 정리된 한국어로 소개하여 내용을 더 풍부하고 실용적으로 만드십시오. 일부 측면이 적용되지 않거나 정보가 불충분한 경우 건너뛰거나 설명할 수 있습니다.`,
+명확하고 잘 정리된 한국어로 소개하여 내용을 더 풍부하고 실용적으로 만드십시오. 일부 측면이 적용되지 않거나 정보가 불충분한 경우 건너뛰거나 설명할 수 있습니다. 내용을 더 쉽게 읽을 수 있도록 Markdown 형식(예: 제목, 목록, 굵은 텍스트)을 사용하십시오. 그러나 너무 복잡한 Markdown 기호는 피하십시오.`,
                 moreInfoPlaceholder: '더 자세한 정보가 여기에 표시됩니다!',
                 moreInfoPrefix: 'AI 추가 설명：\n'
             }
@@ -378,10 +418,10 @@ Please use clear, well-organized English to introduce, making the content richer
                     if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
                         el.placeholder = i18n[lang][key];
                     } else {
-                        // Only update if it's the default placeholder
+                        // Only update if it's the default placeholder or empty
                         const currentContent = el.textContent.trim();
                         const placeholderValues = Object.values(i18n).map(translations => translations[key]).filter(Boolean);
-                        if (el.textContent.trim() === '' || placeholderValues.some(pVal => currentContent.includes(pVal))) {
+                        if (el.textContent.trim() === '' || placeholderValues.some(pVal => currentContent.includes(pVal.substring(0, 10)))) { // Check first 10 chars for partial match
                            el.textContent = i18n[lang][key];
                         }
                     }
@@ -435,10 +475,10 @@ Please use clear, well-organized English to introduce, making the content richer
                 captureButton.classList.remove('hidden');
                 capturedImage.classList.add('hidden');
                 controlsAfterCapture.classList.add('hidden');
-                resultArea.textContent = i18n[currentTargetLanguage].resultPlaceholder;
+                resultArea.textContent = i18n[currentTargetLanguage].resultPlaceholder; // Use textContent for placeholder
                 tellMeMoreButton.classList.add('hidden');
                 moreInfoArea.classList.add('hidden');
-                moreInfoArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder;
+                moreInfoArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder; // Use textContent for placeholder
             } catch (err) {
                 console.error("Error accessing camera: ", err);
                 resultArea.textContent = i18n[currentTargetLanguage].alert_cameraError + err.message;
@@ -481,10 +521,10 @@ Please use clear, well-organized English to introduce, making the content richer
             captureButton.classList.add('hidden');
             controlsAfterCapture.classList.remove('hidden');
             promptHelper.textContent = i18n[currentTargetLanguage].promptHelperText;
-            resultArea.textContent = i18n[currentTargetLanguage].resultPlaceholder; // Reset result area
+            resultArea.textContent = i18n[currentTargetLanguage].resultPlaceholder; // Reset result area using textContent
             tellMeMoreButton.classList.add('hidden'); // Hide tell me more button
             moreInfoArea.classList.add('hidden'); // Hide more info area
-            moreInfoArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder;
+            moreInfoArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder; // Reset more info area using textContent
 
 
             if (stream) {
@@ -511,7 +551,7 @@ Please use clear, well-organized English to introduce, making the content richer
             }
 
             loadingElement.classList.remove('hidden');
-            resultDisplayElement.textContent = ''; 
+            resultDisplayElement.innerHTML = ''; // Use innerHTML
             resultDisplayElement.classList.remove('hidden');
 
 
@@ -531,7 +571,7 @@ Please use clear, well-organized English to introduce, making the content richer
                 }],
                  generationConfig: {
                    temperature: 0.3, 
-                   maxOutputTokens: 4096,
+                   maxOutputTokens: 4096, // <-- Changed to 4096
                  }
             };
 
@@ -554,7 +594,8 @@ Please use clear, well-organized English to introduce, making the content richer
                 
                 if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
                     const description = data.candidates[0].content.parts[0].text;
-                    resultDisplayElement.textContent = responsePrefix + description;
+                    // Use marked.parse to convert Markdown to HTML
+                    resultDisplayElement.innerHTML = responsePrefix + marked.parse(description);
                     if (resultDisplayElement === resultArea) { // Only show "Tell me more" after initial description
                         tellMeMoreButton.classList.remove('hidden');
                     }
@@ -563,23 +604,24 @@ Please use clear, well-organized English to introduce, making the content richer
                      if (data.promptFeedback.safetyRatings) {
                         blockMessage += `\nDetails: ${data.promptFeedback.safetyRatings.map(r => `${r.category} was ${r.probability}`).join(', ')}`;
                     }
-                    resultDisplayElement.textContent = blockMessage;
+                    resultDisplayElement.textContent = blockMessage; // Use textContent for error messages
                     if (resultDisplayElement === resultArea) tellMeMoreButton.classList.add('hidden');
                 }
                 else {
                     console.warn("Unexpected API response structure:", data);
-                    resultDisplayElement.textContent = i18n[currentTargetLanguage].alert_apiError + 'Could not parse description from API response. Check console for details.';
+                    resultDisplayElement.textContent = i18n[currentTargetLanguage].alert_apiError + 'Could not parse description from API response. Check console for details.'; // Use textContent for error messages
                     if (resultDisplayElement === resultArea) tellMeMoreButton.classList.add('hidden');
                 }
 
             } catch (error) {
                 console.error("Error calling Gemini API:", error);
-                resultDisplayElement.textContent = i18n[currentTargetLanguage].alert_apiError + error.message;
+                resultDisplayElement.textContent = i18n[currentTargetLanguage].alert_apiError + error.message; // Use textContent for error messages
                 if (resultDisplayElement === resultArea) tellMeMoreButton.classList.add('hidden');
             } finally {
                 loadingElement.classList.add('hidden');
-                if (resultDisplayElement.textContent.trim() === '') {
-                     resultDisplayElement.textContent = placeholderText;
+                // If content is empty after processing, set placeholder text
+                if (resultDisplayElement.innerHTML.trim() === '' || resultDisplayElement.textContent.trim() === '') {
+                     resultDisplayElement.textContent = placeholderText; // Ensure placeholder is plain text
                 }
             }
         }
@@ -589,7 +631,7 @@ Please use clear, well-organized English to introduce, making the content richer
             const base64ImageData = capturedImage.src.split(',')[1];
             tellMeMoreButton.classList.add('hidden'); // Hide before new request
             moreInfoArea.classList.add('hidden');     // Hide more info area
-            moreInfoArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder; // Reset more info area
+            moreInfoArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder; // Reset more info area with plain text
             
             await callGeminiAPI(
                 i18n[currentTargetLanguage].apiPrompt,
@@ -603,6 +645,9 @@ Please use clear, well-organized English to introduce, making the content richer
 
         tellMeMoreButton.addEventListener('click', async () => {
             const base64ImageData = capturedImage.src.split(',')[1];
+            moreInfoArea.classList.remove('hidden'); // Ensure more info area is visible for loading indicator
+            moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder; // Reset with plain text placeholder
+
             await callGeminiAPI(
                 i18n[currentTargetLanguage].apiPromptMoreInfo,
                 base64ImageData,
