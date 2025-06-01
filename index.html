@@ -80,6 +80,13 @@
         button.secondary:hover {
             background-color: #545b62;
         }
+        button.tertiary {
+            background-color: #28a745; /* Green for "more info" */
+        }
+        button.tertiary:hover {
+            background-color: #1e7e34;
+        }
+
         #cameraView, #appView {
             width: 100%;
         }
@@ -100,15 +107,18 @@
             margin-top: 15px;
             display: none;
         }
-        #resultArea {
-            margin-top: 20px;
+        #resultArea, #moreInfoResultArea {
+            margin-top: 15px;
             padding: 15px;
             background-color: #e9ecef;
             border-radius: var(--border-radius);
-            min-height: 50px;
-            white-space: pre-wrap; /* Preserve line breaks */
+            min-height: 40px;
+            white-space: pre-wrap; 
             word-wrap: break-word;
-            font-size: 0.95em; /* Slightly smaller font for potentially longer text */
+            font-size: 0.95em;
+        }
+        #moreInfoResultArea {
+            background-color: #e0e0e0; /* Slightly different for distinction */
         }
         .hidden {
             display: none !important;
@@ -134,6 +144,10 @@
         .button-group button {
             flex: 1;
         }
+        #moreInfoSection {
+            margin-top: 15px;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -150,14 +164,13 @@
                 <option value="en">English</option>
                 <option value="ja">日本語</option>
                 <option value="ko">한국어</option>
-                <!-- Add more languages if needed -->
             </select>
         </div>
         <button id="saveSettings" data-i18n="saveSettingsButton">儲存設定並開始</button>
     </div>
 
     <div id="appView" class="container hidden">
-        <h1 data-i18n="appTitle">圖像辨識</h1>
+        <h1 data-i18n="appTitle">這是啥？AI幫你看</h1>
         <div id="cameraView">
             <video id="videoPreview" autoplay playsinline></video>
             <button id="captureButton" data-i18n="captureButton">拍攝</button>
@@ -167,15 +180,22 @@
         <img id="capturedImage" alt="Captured Image">
         
         <div id="controlsAfterCapture" class="hidden">
-            <p id="promptHelper" data-i18n="promptHelperText">已拍攝照片。點擊下方按鈕進行描述。</p>
+            <p id="promptHelper" data-i18n="promptHelperText">照片拍好囉！按「這是什麼？」讓 AI 幫你看。</p>
             <div class="button-group">
-                <button id="describeButton" data-i18n="describeButton">這是什麼？</button> <!-- Changed button text -->
+                <button id="describeButtonPrimary" data-i18n="describeButton">這是什麼？</button>
                 <button id="recaptureButton" class="secondary" data-i18n="recaptureButton">重新拍攝</button>
             </div>
         </div>
 
         <div id="loadingIndicator" class="loader hidden"></div>
-        <div id="resultArea" data-i18n-placeholder="resultPlaceholder">辨識結果將顯示於此</div>
+        <div id="resultArea" data-i18n-placeholder="resultPlaceholder">AI 的分析結果會顯示在這裡喔！</div>
+        
+        <div id="moreInfoSection" class="hidden">
+            <button id="tellMeMoreButton" class="tertiary" data-i18n="tellMeMoreButton">想知道更多！</button>
+            <div id="moreInfoLoadingIndicator" class="loader hidden"></div>
+            <div id="moreInfoResultArea" data-i18n-placeholder="moreInfoPlaceholder">更多細節會在這裡出現...</div>
+        </div>
+
         <button id="backToSettings" class="secondary" data-i18n="backToSettingsButton" style="margin-top: 20px;">返回設定</button>
     </div>
 
@@ -190,7 +210,7 @@
         const canvas = document.getElementById('canvas');
         const captureButton = document.getElementById('captureButton');
         const capturedImage = document.getElementById('capturedImage');
-        const describeButton = document.getElementById('describeButton');
+        const describeButtonPrimary = document.getElementById('describeButtonPrimary');
         const recaptureButton = document.getElementById('recaptureButton');
         const controlsAfterCapture = document.getElementById('controlsAfterCapture');
         
@@ -199,19 +219,24 @@
         const backToSettingsButton = document.getElementById('backToSettings');
         const promptHelper = document.getElementById('promptHelper');
 
+        const moreInfoSection = document.getElementById('moreInfoSection');
+        const tellMeMoreButton = document.getElementById('tellMeMoreButton');
+        const moreInfoLoadingIndicator = document.getElementById('moreInfoLoadingIndicator');
+        const moreInfoResultArea = document.getElementById('moreInfoResultArea');
+
         let stream;
         let currentApiKey = '';
         let currentTargetLanguage = 'zh-TW';
+        let initialAIDescription = ''; // To store the first AI response
 
-        // --- MODIFIED I18N STRINGS ---
         const i18n = {
             'zh-TW': {
                 apiKeyLabel: 'API 金鑰:',
                 languageLabel: '目標語言:',
                 saveSettingsButton: '儲存設定並開始',
-                appTitle: '這是啥？AI幫你看', // Changed title
+                appTitle: '這是啥？AI幫你看',
                 captureButton: '拍攝',
-                describeButton: '這是什麼？', // Changed button text
+                describeButton: '這是什麼？',
                 recaptureButton: '重新拍攝',
                 resultPlaceholder: 'AI 的分析結果會顯示在這裡喔！',
                 backToSettingsButton: '返回設定',
@@ -220,16 +245,21 @@
                 alert_apiError: 'API 請求失敗，再試一次看看？ ',
                 alert_noImage: '要先拍張照片才能分析啦！',
                 promptHelperText: '照片拍好囉！按「這是什麼？」讓 AI 幫你看。',
-                apiPrompt: "這張照片裡是什麼東西？請你用輕鬆、口語化的台灣用語（繁體中文）簡單說明一下它的「品名」和「主要用途或特色」。如果照片裡有價格、品牌或其他重要文字，也請一併告訴我。重點是讓我快速看懂，不用太學術或太詳細，謝謝！",
-                apiResponsePrefix: 'AI 說：\n'
+                
+                apiPromptInitial: "這張照片裡是什麼？請你扮演一位很懂台灣用語的導遊，用台灣人一聽就懂的輕鬆口語（繁體中文），超簡潔地告訴我：1. 這個東西的「品名」(台灣人常怎麼稱呼它)。 2. 它最「主要的用途或特色」(挑一個最重要的講)。 3. 「價格」大概多少 (如果照片裡看得到的話)。請務必直接給我純文字答案，不要用任何項目符號、星號、井字號之類的markdown格式，一句話能講完重點最好，拜託了！",
+                apiPromptDetailed: "針對你剛剛說的「{initialDescription}」，可以再多告訴我一些嗎？例如：在台灣，這個東西通常要怎麼用啊？有沒有什麼特別要注意的地方？或是在哪裡比較容易買到或體驗到？一樣用台灣人聽得懂的口語（繁體中文）解釋喔，請給我純文字，不要用 markdown 格式，謝謝！",
+                apiResponsePrefix: 'AI 說：\n',
+                tellMeMoreButton: '想知道更多！',
+                moreInfoPlaceholder: '更多細節會在這裡出現...',
+                moreInfoResponsePrefix: 'AI 補充說明：\n'
             },
-            'en': {
+            'en': { // Basic English translations, can be improved for colloquialism
                 apiKeyLabel: 'API Key:',
                 languageLabel: 'Target Language:',
                 saveSettingsButton: 'Save Settings & Start',
-                appTitle: "What's This? AI Vision", // Changed title
+                appTitle: "What's This? AI Vision",
                 captureButton: 'Capture',
-                describeButton: "What's this?", // Changed button text
+                describeButton: "What's this?",
                 recaptureButton: 'Recapture',
                 resultPlaceholder: 'AI analysis will appear here!',
                 backToSettingsButton: 'Back to Settings',
@@ -238,49 +268,26 @@
                 alert_apiError: 'API request failed. Try again? ',
                 alert_noImage: 'Please capture an image first!',
                 promptHelperText: 'Photo captured! Click "What\'s this?" for AI to analyze.',
-                apiPrompt: "What's in this picture? Please briefly explain its 'name' and 'main purpose or features' in simple, clear English. If there's any price, brand, or other important text, please mention that too. The goal is quick understanding, so keep it concise, not too academic or detailed. Thanks!",
-                apiResponsePrefix: 'AI says:\n'
+                apiPromptInitial: "What's in this picture? Act as a tour guide familiar with common English. Briefly tell me: 1. Its 'name' (common term). 2. Its 'main purpose or feature' (most important). 3. 'Price' (if visible). Please provide a plain text answer, no markdown (like bullets or asterisks). One sentence is best. Thanks!",
+                apiPromptDetailed: "Regarding the '{initialDescription}' you just mentioned, can you tell me more? For example: How is it typically used? Any special precautions? Where can I find/experience it? Explain in simple English, plain text only, no markdown. Thanks!",
+                apiResponsePrefix: 'AI says:\n',
+                tellMeMoreButton: 'Tell me more!',
+                moreInfoPlaceholder: 'More details will appear here...',
+                moreInfoResponsePrefix: 'AI adds:\n'
             },
-            'ja': {
-                apiKeyLabel: 'APIキー:',
-                languageLabel: 'ターゲット言語:',
-                saveSettingsButton: '設定を保存して開始',
-                appTitle: 'これは何？AI画像認識', // Changed title
-                captureButton: '撮影',
-                describeButton: 'これは何？', // Changed button text
-                recaptureButton: '再撮影',
-                resultPlaceholder: 'AIの解析結果はここに表示されます！',
-                backToSettingsButton: '設定に戻る',
-                alert_apiKeyRequired: 'APIキーを入力してください。',
-                alert_cameraError: 'カメラを起動できませんでした: ',
-                alert_apiError: 'APIリクエストに失敗しました。もう一度試しますか？',
-                alert_noImage: 'まず画像を撮影してください！',
-                promptHelperText: '写真が撮影されました。「これは何？」をクリックしてAIに解析させてください。',
-                apiPrompt: "この写真には何が写っていますか？その「品名」と「主な用途や特徴」を、分かりやすく口語的な日本語で簡単に説明してください。もし価格、ブランド、その他の重要な文字があれば、それも教えてください。学術的すぎたり詳しすぎたりせず、すぐに理解できるように簡潔にお願いします。ありがとう！",
-                apiResponsePrefix: 'AIの解析：\n'
-            },
-            'ko': {
-                apiKeyLabel: 'API 키:',
-                languageLabel: '대상 언어:',
-                saveSettingsButton: '설정 저장 및 시작',
-                appTitle: '이게 뭐지? AI 이미지 분석', // Changed title
-                captureButton: '촬영',
-                describeButton: '이게 뭐예요?', // Changed button text
-                recaptureButton: '다시 촬영',
-                resultPlaceholder: 'AI 분석 결과가 여기에 표시됩니다!',
-                backToSettingsButton: '설정으로 돌아가기',
-                alert_apiKeyRequired: 'API 키를 입력해주세요.',
-                alert_cameraError: '카메라를 시작할 수 없습니다: ',
-                alert_apiError: 'API 요청에 실패했습니다. 다시 시도하시겠습니까? ',
-                alert_noImage: '먼저 이미지를 촬영해주세요!',
-                promptHelperText: '사진이 촬영되었습니다! AI 분석을 위해 "이게 뭐예요?"를 클릭하세요.',
-                apiPrompt: "이 사진에 무엇이 있나요? '제품명'과 '주요 용도 또는 특징'을 이해하기 쉽고 일상적인 한국어로 간략하게 설명해주세요. 가격, 브랜드 또는 기타 중요한 텍스트가 있다면 그것도 알려주세요. 학문적이거나 너무 상세하지 않고 빠르게 이해할 수 있도록 간결하게 부탁드립니다. 감사합니다!",
-                apiResponsePrefix: 'AI 설명：\n'
-            }
+            // Add ja, ko with similar two-stage prompts if needed
         };
-        // --- END OF MODIFIED I18N STRINGS ---
 
-
+        function cleanApiResponse(text) {
+            if (!text) return '';
+            // Remove common markdown-like characters, especially leading/trailing ones on lines or around words.
+            // This is a basic cleanup; more sophisticated regex might be needed if AI is stubborn.
+            let cleanedText = text.replace(/^[*\-]\s+/gm, ''); // Remove leading bullets/hyphens
+            cleanedText = cleanedText.replace(/(\*\*|__)(.*?)\1/g, '$2'); // Remove bold
+            cleanedText = cleanedText.replace(/(\*|_)(.*?)\1/g, '$2');   // Remove italic
+            return cleanedText.trim();
+        }
+        
         function updateUIStrings(lang) {
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 const key = el.getAttribute('data-i18n');
@@ -291,12 +298,12 @@
             document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
                 const key = el.getAttribute('data-i18n-placeholder');
                 if (i18n[lang] && i18n[lang][key]) {
-                    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
-                        el.placeholder = i18n[lang][key];
-                    } else {
-                        if (el.id === 'resultArea' && (el.textContent.trim() === '' || el.textContent.startsWith('辨識結果將顯示於此') || el.textContent.startsWith('Recognition result will appear here') || el.textContent.startsWith('AI の分析結果会显示在这里喔！') || el.textContent.startsWith('AI 분석 결과가 여기에 표시됩니다!'))) {
-                           el.textContent = i18n[lang][key];
-                        }
+                    if (el.id === 'resultArea' && (el.textContent.trim() === '' || Object.values(i18n).some(val => val.resultPlaceholder === el.textContent.trim()))) {
+                       el.textContent = i18n[lang][key];
+                    } else if (el.id === 'moreInfoResultArea' && (el.textContent.trim() === '' || Object.values(i18n).some(val => val.moreInfoPlaceholder === el.textContent.trim()))) {
+                       el.textContent = i18n[lang][key];
+                    } else if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                       el.placeholder = i18n[lang][key];
                     }
                 }
             });
@@ -305,15 +312,17 @@
             if (!controlsAfterCapture.classList.contains('hidden')) {
                 promptHelper.textContent = i18n[currentTargetLanguage].promptHelperText;
             }
-             // Update main title based on language
             const mainTitle = document.querySelector('h1[data-i18n="appTitle"]');
             if (mainTitle && i18n[lang] && i18n[lang].appTitle) {
                 mainTitle.textContent = i18n[lang].appTitle;
             }
-             // Update describe button text
-            const describeBtn = document.getElementById('describeButton');
+            const describeBtn = document.getElementById('describeButtonPrimary');
             if (describeBtn && i18n[lang] && i18n[lang].describeButton) {
                 describeBtn.textContent = i18n[lang].describeButton;
+            }
+            const tellMoreBtn = document.getElementById('tellMeMoreButton');
+             if (tellMoreBtn && i18n[lang] && i18n[lang].tellMeMoreButton) {
+                tellMoreBtn.textContent = i18n[lang].tellMeMoreButton;
             }
         }
         
@@ -325,7 +334,7 @@
                 apiKeyInput.value = savedApiKey;
                 currentApiKey = savedApiKey;
             }
-            if (savedLanguage) {
+            if (savedLanguage && i18n[savedLanguage]) {
                 targetLanguageSelect.value = savedLanguage;
                 currentTargetLanguage = savedLanguage;
             } else {
@@ -347,6 +356,9 @@
                 capturedImage.classList.add('hidden');
                 controlsAfterCapture.classList.add('hidden');
                 resultArea.textContent = i18n[currentTargetLanguage].resultPlaceholder;
+                moreInfoSection.classList.add('hidden');
+                moreInfoResultArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder;
+                initialAIDescription = '';
             } catch (err) {
                 console.error("Error accessing camera: ", err);
                 resultArea.textContent = i18n[currentTargetLanguage].alert_cameraError + err.message;
@@ -372,7 +384,9 @@
         });
 
         targetLanguageSelect.addEventListener('change', (event) => {
-            updateUIStrings(event.target.value);
+            if (i18n[event.target.value]) {
+                updateUIStrings(event.target.value);
+            }
         });
 
         captureButton.addEventListener('click', () => {
@@ -381,7 +395,7 @@
             const context = canvas.getContext('2d');
             context.drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
             
-            const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9); // Use JPEG with quality for potentially smaller size
+            const imageDataUrl = canvas.toDataURL('image/jpeg', 0.85); 
             capturedImage.src = imageDataUrl;
             capturedImage.classList.remove('hidden');
             
@@ -389,6 +403,10 @@
             captureButton.classList.add('hidden');
             controlsAfterCapture.classList.remove('hidden');
             promptHelper.textContent = i18n[currentTargetLanguage].promptHelperText;
+            moreInfoSection.classList.add('hidden'); // Hide more info on new capture
+            resultArea.textContent = i18n[currentTargetLanguage].resultPlaceholder; // Reset result area
+            initialAIDescription = '';
+
 
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
@@ -399,7 +417,7 @@
             startCamera(); 
         });
 
-        describeButton.addEventListener('click', async () => {
+        async function callGeminiAPI(prompt, loadingElement, resultDisplayElement, resultPrefix, generationConf = {}) {
             if (!capturedImage.src || capturedImage.src === window.location.href || capturedImage.src.startsWith('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=')) { 
                 alert(i18n[currentTargetLanguage].alert_noImage);
                 return;
@@ -409,18 +427,16 @@
                 return;
             }
 
-            loadingIndicator.classList.remove('hidden');
-            resultArea.textContent = ''; 
+            loadingElement.classList.remove('hidden');
+            resultDisplayElement.textContent = ''; 
 
             const base64ImageData = capturedImage.src.split(',')[1];
-            
-            // Using the user-specified model
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${currentApiKey}`;
             
             const requestBody = {
                 contents: [{
                     parts: [
-                        { text: i18n[currentTargetLanguage].apiPrompt },
+                        { text: prompt },
                         {
                             inline_data: {
                                 mime_type: "image/jpeg",
@@ -429,54 +445,90 @@
                         }
                     ]
                 }],
-                 generationConfig: { // Added generationConfig for potentially better control
-                   temperature: 0.3, // Lower temperature for more factual/less creative responses
-                   // topK: 32,
-                   // topP: 1,
-                   maxOutputTokens: 1024, // Limit output tokens for brevity
-                   // stopSequences: []
+                 generationConfig: { 
+                   temperature: 0.2, // Lower for more factual initial response
+                   maxOutputTokens: prompt === i18n[currentTargetLanguage].apiPromptInitial ? 256 : 1024, // Shorter for initial, longer for detailed
+                   ...generationConf // Allow overriding
                  }
             };
 
             try {
                 const response = await fetch(API_URL, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestBody)
                 });
 
                 if (!response.ok) {
                     const errorData = await response.json();
                     console.error('API Error Response:', errorData);
-                    throw new Error(`HTTP error! status: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+                    throw new Error(`HTTP ${response.status}: ${errorData.error?.message || 'Unknown API error'}`);
                 }
 
                 const data = await response.json();
                 
-                if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
-                    const description = data.candidates[0].content.parts[0].text;
-                    resultArea.textContent = i18n[currentTargetLanguage].apiResponsePrefix + description;
-                } else if (data.promptFeedback && data.promptFeedback.blockReason) {
-                    let blockMessage = `${i18n[currentTargetLanguage].alert_apiError} Blocked by API. Reason: ${data.promptFeedback.blockReason}`;
+                if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+                    const rawDescription = data.candidates[0].content.parts[0].text;
+                    const cleanedDescription = cleanApiResponse(rawDescription); // Clean the response
+                    resultDisplayElement.textContent = resultPrefix + cleanedDescription;
+                    return cleanedDescription; // Return cleaned text for further use
+                } else if (data.promptFeedback?.blockReason) {
+                    let blockMessage = `${i18n[currentTargetLanguage].alert_apiError} Blocked. Reason: ${data.promptFeedback.blockReason}`;
                      if (data.promptFeedback.safetyRatings) {
-                        blockMessage += `\nDetails: ${data.promptFeedback.safetyRatings.map(r => `${r.category} was ${r.probability}`).join(', ')}`;
+                        blockMessage += `\nDetails: ${data.promptFeedback.safetyRatings.map(r => `${r.category}: ${r.probability}`).join(', ')}`;
                     }
-                    resultArea.textContent = blockMessage;
+                    resultDisplayElement.textContent = blockMessage;
+                } else {
+                    console.warn("Unexpected API response:", data);
+                    resultDisplayElement.textContent = i18n[currentTargetLanguage].alert_apiError + 'Could not parse response. Check console.';
                 }
-                else {
-                    console.warn("Unexpected API response structure:", data);
-                    resultArea.textContent = i18n[currentTargetLanguage].alert_apiError + 'Could not parse description from API response. Check console for details.';
-                }
-
             } catch (error) {
                 console.error("Error calling Gemini API:", error);
-                resultArea.textContent = i18n[currentTargetLanguage].alert_apiError + error.message;
+                resultDisplayElement.textContent = i18n[currentTargetLanguage].alert_apiError + error.message;
             } finally {
-                loadingIndicator.classList.add('hidden');
+                loadingElement.classList.add('hidden');
+            }
+            return null; // Return null on failure or no text
+        }
+
+        describeButtonPrimary.addEventListener('click', async () => {
+            moreInfoSection.classList.add('hidden'); // Hide old "more info" if any
+            moreInfoResultArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder; // Reset placeholder
+
+            const description = await callGeminiAPI(
+                i18n[currentTargetLanguage].apiPromptInitial, 
+                loadingIndicator, 
+                resultArea, 
+                i18n[currentTargetLanguage].apiResponsePrefix
+            );
+            if (description) {
+                initialAIDescription = description; // Save the cleaned description
+                moreInfoSection.classList.remove('hidden');
+                tellMeMoreButton.classList.remove('hidden'); // Show button
+                moreInfoLoadingIndicator.classList.add('hidden'); // Ensure loader is hidden
             }
         });
+
+        tellMeMoreButton.addEventListener('click', async () => {
+            if (!initialAIDescription) {
+                console.warn("No initial description available for 'tell me more'.");
+                moreInfoResultArea.textContent = "請先取得初步描述。";
+                return;
+            }
+            tellMeMoreButton.classList.add('hidden'); // Hide button while loading
+
+            let detailedPrompt = i18n[currentTargetLanguage].apiPromptDetailed.replace('{initialDescription}', initialAIDescription);
+            
+            await callGeminiAPI(
+                detailedPrompt, 
+                moreInfoLoadingIndicator, 
+                moreInfoResultArea, 
+                i18n[currentTargetLanguage].moreInfoResponsePrefix,
+                { temperature: 0.3, maxOutputTokens: 1024 } // Slightly more creative/longer for details
+            );
+            // No need to show the button again, user can re-trigger initial if needed or recapture.
+        });
+
 
         backToSettingsButton.addEventListener('click', () => {
             if (stream) {
@@ -484,26 +536,28 @@
             }
             appView.classList.add('hidden');
             settingsView.classList.remove('hidden');
-            capturedImage.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="; // Clear to a transparent pixel
+            capturedImage.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="; 
             capturedImage.classList.add('hidden');
-            resultArea.textContent = i18n[currentTargetLanguage].resultPlaceholder; // Reset placeholder
+            resultArea.textContent = i18n[currentTargetLanguage].resultPlaceholder; 
             controlsAfterCapture.classList.add('hidden');
-            videoPreview.classList.remove('hidden'); // Show video preview again
-            captureButton.classList.remove('hidden'); // Show capture button again
+            moreInfoSection.classList.add('hidden');
+            moreInfoResultArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder;
+            initialAIDescription = '';
+            videoPreview.classList.remove('hidden'); 
+            captureButton.classList.remove('hidden'); 
         });
 
-        // Initial load
         loadSettings();
-        if (currentApiKey) {
-            // Decide if you want to auto-start or always show settings first
+        if (!currentApiKey) {
+            settingsView.classList.remove('hidden');
+            appView.classList.add('hidden');
+        } else {
+            // If API key exists, still show settings for language confirmation or let user click start.
+            // If you want to auto-start, uncomment below and ensure appView starts correctly.
             // settingsView.classList.add('hidden');
             // appView.classList.remove('hidden');
             // startCamera();
-        } else {
-            settingsView.classList.remove('hidden');
-            appView.classList.add('hidden');
         }
-
     </script>
 </body>
 </html>
