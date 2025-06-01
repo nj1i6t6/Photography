@@ -70,6 +70,8 @@
             transition: background-color 0.3s ease;
             width: 100%;
             box-sizing: border-box;
+            margin-top: 5px; /* Added some margin for buttons */
+            margin-bottom: 5px; /* Added some margin for buttons */
         }
         button:hover {
             background-color: #0056b3;
@@ -80,13 +82,6 @@
         button.secondary:hover {
             background-color: #545b62;
         }
-        button.tertiary {
-            background-color: #28a745; 
-        }
-        button.tertiary:hover {
-            background-color: #1e7e34;
-        }
-
         #cameraView, #appView {
             width: 100%;
         }
@@ -107,18 +102,15 @@
             margin-top: 15px;
             display: none;
         }
-        #resultArea, #moreInfoResultArea {
-            margin-top: 15px;
+        .info-display-area { /* Consolidated style for resultArea and moreInfoArea */
+            margin-top: 20px;
             padding: 15px;
             background-color: #e9ecef;
             border-radius: var(--border-radius);
-            min-height: 40px;
+            min-height: 50px;
             white-space: pre-wrap; 
             word-wrap: break-word;
             font-size: 0.95em;
-        }
-        #moreInfoResultArea {
-            background-color: #e0e0e0; 
         }
         .hidden {
             display: none !important;
@@ -143,10 +135,8 @@
         }
         .button-group button {
             flex: 1;
-        }
-        #moreInfoSection {
-            margin-top: 15px;
-            width: 100%;
+            margin-top: 0; /* Reset margin for buttons in group */
+            margin-bottom: 0; /* Reset margin for buttons in group */
         }
     </style>
 </head>
@@ -164,13 +154,14 @@
                 <option value="en">English</option>
                 <option value="ja">日本語</option>
                 <option value="ko">한국어</option>
+                <!-- Add more languages if needed -->
             </select>
         </div>
         <button id="saveSettings" data-i18n="saveSettingsButton">儲存設定並開始</button>
     </div>
 
     <div id="appView" class="container hidden">
-        <h1 data-i18n="appTitle">這是啥？AI幫你看</h1>
+        <h1 data-i18n="appTitle">圖像辨識</h1>
         <div id="cameraView">
             <video id="videoPreview" autoplay playsinline></video>
             <button id="captureButton" data-i18n="captureButton">拍攝</button>
@@ -180,21 +171,19 @@
         <img id="capturedImage" alt="Captured Image">
         
         <div id="controlsAfterCapture" class="hidden">
-            <p id="promptHelper" data-i18n="promptHelperText">照片拍好囉！按「這是什麼？」讓 AI 幫你看。</p>
+            <p id="promptHelper" data-i18n="promptHelperText">已拍攝照片。點擊下方按鈕進行描述。</p>
             <div class="button-group">
-                <button id="describeButtonPrimary" data-i18n="describeButton">這是什麼？</button>
+                <button id="describeButton" data-i18n="describeButton">這是什麼？</button>
                 <button id="recaptureButton" class="secondary" data-i18n="recaptureButton">重新拍攝</button>
             </div>
         </div>
 
         <div id="loadingIndicator" class="loader hidden"></div>
-        <div id="resultArea" data-i18n-placeholder="resultPlaceholder">AI 的分析結果會顯示在這裡喔！</div>
+        <div id="resultArea" class="info-display-area" data-i18n-placeholder="resultPlaceholder">辨識結果將顯示於此</div>
         
-        <div id="moreInfoSection" class="hidden">
-            <button id="tellMeMoreButton" class="tertiary" data-i18n="tellMeMoreButton">想知道更多！</button>
-            <div id="moreInfoLoadingIndicator" class="loader hidden"></div>
-            <div id="moreInfoResultArea" data-i18n-placeholder="moreInfoPlaceholder">更多細節會在這裡出現...</div>
-        </div>
+        <button id="tellMeMoreButton" class="secondary hidden" data-i18n="tellMeMoreButtonLabel" style="margin-top: 15px;">告訴我更多</button>
+        <div id="moreInfoLoadingIndicator" class="loader hidden"></div>
+        <div id="moreInfoArea" class="info-display-area hidden" data-i18n-placeholder="moreInfoPlaceholder" style="margin-top:10px;">更多資訊將顯示於此</div>
 
         <button id="backToSettings" class="secondary" data-i18n="backToSettingsButton" style="margin-top: 20px;">返回設定</button>
     </div>
@@ -210,7 +199,7 @@
         const canvas = document.getElementById('canvas');
         const captureButton = document.getElementById('captureButton');
         const capturedImage = document.getElementById('capturedImage');
-        const describeButtonPrimary = document.getElementById('describeButtonPrimary');
+        const describeButton = document.getElementById('describeButton');
         const recaptureButton = document.getElementById('recaptureButton');
         const controlsAfterCapture = document.getElementById('controlsAfterCapture');
         
@@ -219,15 +208,14 @@
         const backToSettingsButton = document.getElementById('backToSettings');
         const promptHelper = document.getElementById('promptHelper');
 
-        const moreInfoSection = document.getElementById('moreInfoSection');
+        // New elements for "Tell me more"
         const tellMeMoreButton = document.getElementById('tellMeMoreButton');
         const moreInfoLoadingIndicator = document.getElementById('moreInfoLoadingIndicator');
-        const moreInfoResultArea = document.getElementById('moreInfoResultArea');
+        const moreInfoArea = document.getElementById('moreInfoArea');
 
         let stream;
         let currentApiKey = '';
         let currentTargetLanguage = 'zh-TW';
-        let initialAIDescription = ''; 
 
         const i18n = {
             'zh-TW': {
@@ -242,17 +230,31 @@
                 backToSettingsButton: '返回設定',
                 alert_apiKeyRequired: '請先輸入你的 API 金鑰啦！',
                 alert_cameraError: '哎呀，相機打不開捏: ',
-                alert_apiError: 'API 請求失敗：', // Modified for better concatenation
+                alert_apiError: 'API 請求失敗，再試一次看看？ ',
                 alert_noImage: '要先拍張照片才能分析啦！',
                 promptHelperText: '照片拍好囉！按「這是什麼？」讓 AI 幫你看。',
-                apiPromptInitial: "這張照片裡是什麼？請你扮演一位很懂台灣用語的導遊，用台灣人一聽就懂的輕鬆口語（繁體中文），超簡潔地告訴我：1. 這個東西的「品名」(台灣人常怎麼稱呼它)。 2. 它最「主要的用途或特色」(挑一個最重要的講)。 3. 「價格」大概多少 (如果照片裡看得到的話)。請務必直接給我純文字答案，不要用任何項目符號、星號、井字號之類的markdown格式，一句話能講完重點最好，拜託了！",
-                apiPromptDetailed: "針對你剛剛說的「{initialDescription}」，可以再多告訴我一些嗎？例如：在台灣，這個東西通常要怎麼用啊？有沒有什麼特別要注意的地方？或是在哪裡比較容易買到或體驗到？一樣用台灣人聽得懂的口語（繁體中文）解釋喔，請給我純文字，不要用 markdown 格式，謝謝！",
+                apiPrompt: `這張照片裡是什麼東西？請你嚴格依照以下「回覆樣板」的格式，並使用輕鬆、口語化的台灣用語（繁體中文）來回答。請根據圖片內容填寫 [方括號] 中的資訊。如果某項資訊在圖片中無法辨識，請在對應的 [方括號] 中填寫「看不太清楚耶」或「圖片裡沒有顯示價格喔」。
+
+回覆樣板：
+這叫做「[物品的台灣口語化通稱或品名]」。
+用途（或主要成分，依圖片判斷）是「[描述用途/主要成分/特色]」。
+價格「[如果圖片中有價格請提供，若無則填寫上述提示，例如：約 NT$XXX元 或 價格未顯示]」。
+
+如果圖片中有清晰的品牌名稱、型號或其他重要文字，請在最後補充一行：「其他觀察到的資訊有：[品牌、型號等文字]」。
+請確保回答自然流暢，謝謝！`,
                 apiResponsePrefix: 'AI 說：\n',
-                tellMeMoreButton: '想知道更多！',
-                moreInfoPlaceholder: '更多細節會在這裡出現...',
-                moreInfoResponsePrefix: 'AI 補充說明：\n'
+                tellMeMoreButtonLabel: '告訴我更多關於它',
+                apiPromptMoreInfo: `針對這張圖片裡的主要物品，請提供比之前初步描述更詳細的補充資訊。內容可以包含（但不限於）：
+- **使用教學**：如何正確或有效地使用它？有什麼步驟或技巧？
+- **料理建議**（如果適用）：如果是食材或食品，有哪些推薦的料理方式或搭配？
+- **保養存放**（如果適用）：如何保養、清潔或存放這個物品？
+- **哪裡買/取得**：通常可以在哪類商店或地方找到它？
+- **相關提醒**：使用上有沒有什麼需要特別注意的地方？
+請用輕鬆口語、條理分明的台灣中文來介紹，讓內容更豐富實用。如果某些方面不適用或資訊不足，可以略過或說明。`,
+                moreInfoPlaceholder: '更多詳細資訊會顯示在這裡～',
+                moreInfoPrefix: 'AI 補充說明：\n'
             },
-            'en': { 
+            'en': {
                 apiKeyLabel: 'API Key:',
                 languageLabel: 'Target Language:',
                 saveSettingsButton: 'Save Settings & Start',
@@ -264,26 +266,105 @@
                 backToSettingsButton: 'Back to Settings',
                 alert_apiKeyRequired: 'Please enter your API Key.',
                 alert_cameraError: 'Could not start camera: ',
-                alert_apiError: 'API request failed: ', // Modified
+                alert_apiError: 'API request failed. Try again? ',
                 alert_noImage: 'Please capture an image first!',
                 promptHelperText: 'Photo captured! Click "What\'s this?" for AI to analyze.',
-                apiPromptInitial: "What's in this picture? Act as a tour guide familiar with common English. Briefly tell me: 1. Its 'name' (common term). 2. Its 'main purpose or feature' (most important). 3. 'Price' (if visible). Please provide a plain text answer, no markdown (like bullets or asterisks). One sentence is best. Thanks!",
-                apiPromptDetailed: "Regarding the '{initialDescription}' you just mentioned, can you tell me more? For example: How is it typically used? Any special precautions? Where can I find/experience it? Explain in simple English, plain text only, no markdown. Thanks!",
+                apiPrompt: `What is in this picture? Please strictly follow the "Response Template" format below and use simple, clear English. Fill in the information in [square brackets] based on the image content. If some information cannot be identified from the image, please write "Not clear" or "Price not shown in image" in the corresponding [bracket].
+
+Response Template:
+This is called "[common name or product name]".
+Its purpose (or main ingredients, judge by image) is "[describe purpose/main ingredients/features]".
+The price is "[provide if price is visible in image, otherwise use above hints, e.g., approx. $XX or Price not shown]".
+
+If there are clear brand names, model numbers, or other important text in the image, add a line at the end: "Other observed information: [brand, model, etc.]".
+Please ensure the answer is natural and fluent. Thanks!`,
                 apiResponsePrefix: 'AI says:\n',
-                tellMeMoreButton: 'Tell me more!',
-                moreInfoPlaceholder: 'More details will appear here...',
-                moreInfoResponsePrefix: 'AI adds:\n'
+                tellMeMoreButtonLabel: 'Tell me more about it',
+                apiPromptMoreInfo: `Regarding the main item in this image, please provide more detailed supplementary information than the initial description. Content can include (but is not limited to):
+- **Usage instructions**: How to use it correctly or effectively? Any steps or tips?
+- **Cooking suggestions** (if applicable): If it's an ingredient or food, what are recommended cooking methods or pairings?
+- **Maintenance/Storage** (if applicable): How to maintain, clean, or store this item?
+- **Where to buy/get it**: Where can this item typically be found or purchased?
+- **Relevant reminders**: Are there any special precautions for use?
+Please use clear, well-organized English to introduce, making the content richer and more practical. If some aspects are not applicable or information is insufficient, you can skip or explain.`,
+                moreInfoPlaceholder: 'More detailed information will appear here!',
+                moreInfoPrefix: 'AI adds:\n'
             },
+            // Add similar translations for ja and ko for apiPrompt, tellMeMoreButtonLabel, apiPromptMoreInfo, moreInfoPlaceholder, moreInfoPrefix
+            'ja': { // Example, needs full translation
+                apiKeyLabel: 'APIキー:',
+                languageLabel: 'ターゲット言語:',
+                saveSettingsButton: '設定を保存して開始',
+                appTitle: 'これは何？AI画像認識',
+                captureButton: '撮影',
+                describeButton: 'これは何？',
+                recaptureButton: '再撮影',
+                resultPlaceholder: 'AIの解析結果はここに表示されます！',
+                backToSettingsButton: '設定に戻る',
+                alert_apiKeyRequired: 'APIキーを入力してください。',
+                alert_cameraError: 'カメラを起動できませんでした: ',
+                alert_apiError: 'APIリクエストに失敗しました。もう一度試しますか？',
+                alert_noImage: 'まず画像を撮影してください！',
+                promptHelperText: '写真が撮影されました。「これは何？」をクリックしてAIに解析させてください。',
+                apiPrompt: `この写真には何が写っていますか？以下の「回答テンプレート」の形式に厳密に従い、わかりやすく口語的な日本語で回答してください。画像の内容に基づいて[角括弧]内の情報を記入してください。画像から情報が特定できない場合は、対応する[角括弧]に「不明瞭です」または「価格は画像に表示されていません」と記入してください。
+
+回答テンプレート：
+これは「[物品の一般的な呼称または品名]」と呼ばれます。
+用途（または主な成分、画像から判断）は「[用途/主な成分/特徴を記述]」です。
+価格は「[画像に価格が表示されていれば記入、なければ上記のヒントを使用。例：約XXX円または価格未表示]」です。
+
+画像に明確なブランド名、モデル番号、その他の重要なテキストがある場合は、最後に一行追加してください：「その他観察された情報：[ブランド、モデルなど]」。
+回答は自然で流暢になるようお願いします。ありがとうございます！`,
+                apiResponsePrefix: 'AIの解析：\n',
+                tellMeMoreButtonLabel: 'もっと詳しく教えて',
+                apiPromptMoreInfo: `この画像の主要なアイテムについて、最初の説明よりも詳細な補足情報を提供してください。内容は以下を含むことができます（ただしこれらに限定されません）：
+- **使用方法**：正しくまたは効果的に使用する方法は？手順やコツはありますか？
+- **料理の提案**（該当する場合）：食材や食品の場合、おすすめの調理方法や組み合わせは何ですか？
+- **メンテナンス/保管**（該当する場合）：このアイテムをどのように維持、清掃、または保管しますか？
+- **購入/入手場所**：このアイテムは通常どこで見つけたり購入したりできますか？
+- **関連する注意点**：使用にあたって特に注意すべき点はありますか？
+わかりやすく整理された日本語で紹介し、内容をより豊かで実用的なものにしてください。一部の側面が該当しない場合や情報が不十分な場合は、スキップまたは説明してください。`,
+                moreInfoPlaceholder: 'さらに詳しい情報はこちらに表示されます！',
+                moreInfoPrefix: 'AIの補足説明：\n'
+            },
+            'ko': { // Example, needs full translation
+                apiKeyLabel: 'API 키:',
+                languageLabel: '대상 언어:',
+                saveSettingsButton: '설정 저장 및 시작',
+                appTitle: '이게 뭐지? AI 이미지 분석',
+                captureButton: '촬영',
+                describeButton: '이게 뭐예요?',
+                recaptureButton: '다시 촬영',
+                resultPlaceholder: 'AI 분석 결과가 여기에 표시됩니다!',
+                backToSettingsButton: '설정으로 돌아가기',
+                alert_apiKeyRequired: 'API 키를 입력해주세요.',
+                alert_cameraError: '카메라를 시작할 수 없습니다: ',
+                alert_apiError: 'API 요청에 실패했습니다. 다시 시도하시겠습니까? ',
+                alert_noImage: '먼저 이미지를 촬영해주세요!',
+                promptHelperText: '사진이 촬영되었습니다! AI 분석을 위해 "이게 뭐예요?"를 클릭하세요.',
+                apiPrompt: `이 사진에 무엇이 있습니까? 아래 "응답 템플릿" 형식을 엄격히 따르고 간단하고 명확한 한국어로 답변하십시오. 이미지 내용을 기반으로 [대괄호] 안의 정보를 입력하십시오. 이미지에서 일부 정보를 식별할 수 없는 경우 해당 [대괄호]에 "명확하지 않음" 또는 "이미지에 가격이 표시되지 않음"이라고 작성하십시오.
+
+응답 템플릿:
+이것은 "[일반적인 이름 또는 제품 이름]"이라고 합니다.
+용도(또는 주요 성분, 이미지로 판단)는 "[용도/주요 성분/특징 설명]"입니다.
+가격은 "[이미지에 가격이 표시된 경우 제공, 그렇지 않은 경우 위 힌트 사용, 예: 약 XXX원 또는 가격 미표시]"입니다.
+
+이미지에 명확한 브랜드 이름, 모델 번호 또는 기타 중요한 텍스트가 있는 경우 마지막에 한 줄을 추가하십시오: "기타 관찰된 정보: [브랜드, 모델 등]".
+답변이 자연스럽고 유창하도록 해주십시오. 감사합니다!`,
+                apiResponsePrefix: 'AI 설명：\n',
+                tellMeMoreButtonLabel: '자세히 알려줘',
+                apiPromptMoreInfo: `이 이미지의 주요 항목에 대해 초기 설명보다 자세한 보충 정보를 제공하십시오. 내용은 다음을 포함할 수 있지만 이에 국한되지는 않습니다:
+- **사용 지침**: 올바르게 또는 효과적으로 사용하는 방법은 무엇입니까? 단계나 팁이 있습니까?
+- **요리 제안** (해당하는 경우): 재료나 음식인 경우 권장되는 요리 방법이나 조합은 무엇입니까?
+- **유지 관리/보관** (해당하는 경우): 이 항목을 어떻게 유지, 청소 또는 보관합니까?
+- **구입처/입수처**: 이 항목은 일반적으로 어디에서 찾거나 구입할 수 있습니까?
+- **관련 알림**: 사용 시 특별히 주의해야 할 사항이 있습니까?
+명확하고 잘 정리된 한국어로 소개하여 내용을 더 풍부하고 실용적으로 만드십시오. 일부 측면이 적용되지 않거나 정보가 불충분한 경우 건너뛰거나 설명할 수 있습니다.`,
+                moreInfoPlaceholder: '더 자세한 정보가 여기에 표시됩니다!',
+                moreInfoPrefix: 'AI 추가 설명：\n'
+            }
         };
 
-        function cleanApiResponse(text) {
-            if (!text) return '';
-            let cleanedText = text.replace(/^[*\-]\s+/gm, ''); 
-            cleanedText = cleanedText.replace(/(\*\*|__)(.*?)\1/g, '$2'); 
-            cleanedText = cleanedText.replace(/(\*|_)(.*?)\1/g, '$2');  
-            return cleanedText.trim();
-        }
-        
         function updateUIStrings(lang) {
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 const key = el.getAttribute('data-i18n');
@@ -294,12 +375,15 @@
             document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
                 const key = el.getAttribute('data-i18n-placeholder');
                 if (i18n[lang] && i18n[lang][key]) {
-                    if (el.id === 'resultArea' && (el.textContent.trim() === '' || Object.values(i18n).some(val => val.resultPlaceholder === el.textContent.trim()))) {
-                       el.textContent = i18n[lang][key];
-                    } else if (el.id === 'moreInfoResultArea' && (el.textContent.trim() === '' || Object.values(i18n).some(val => val.moreInfoPlaceholder === el.textContent.trim()))) {
-                       el.textContent = i18n[lang][key];
-                    } else if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
-                       el.placeholder = i18n[lang][key];
+                    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                        el.placeholder = i18n[lang][key];
+                    } else {
+                        // Only update if it's the default placeholder
+                        const currentContent = el.textContent.trim();
+                        const placeholderValues = Object.values(i18n).map(translations => translations[key]).filter(Boolean);
+                        if (el.textContent.trim() === '' || placeholderValues.some(pVal => currentContent.includes(pVal))) {
+                           el.textContent = i18n[lang][key];
+                        }
                     }
                 }
             });
@@ -312,13 +396,13 @@
             if (mainTitle && i18n[lang] && i18n[lang].appTitle) {
                 mainTitle.textContent = i18n[lang].appTitle;
             }
-            const describeBtn = document.getElementById('describeButtonPrimary');
+            const describeBtn = document.getElementById('describeButton');
             if (describeBtn && i18n[lang] && i18n[lang].describeButton) {
                 describeBtn.textContent = i18n[lang].describeButton;
             }
-            const tellMoreBtn = document.getElementById('tellMeMoreButton');
-             if (tellMoreBtn && i18n[lang] && i18n[lang].tellMeMoreButton) {
-                tellMoreBtn.textContent = i18n[lang].tellMeMoreButton;
+            // Update "Tell me more" button text
+            if (tellMeMoreButton && i18n[lang] && i18n[lang].tellMeMoreButtonLabel) {
+                tellMeMoreButton.textContent = i18n[lang].tellMeMoreButtonLabel;
             }
         }
         
@@ -330,7 +414,7 @@
                 apiKeyInput.value = savedApiKey;
                 currentApiKey = savedApiKey;
             }
-            if (savedLanguage && i18n[savedLanguage]) {
+            if (savedLanguage) {
                 targetLanguageSelect.value = savedLanguage;
                 currentTargetLanguage = savedLanguage;
             } else {
@@ -352,9 +436,9 @@
                 capturedImage.classList.add('hidden');
                 controlsAfterCapture.classList.add('hidden');
                 resultArea.textContent = i18n[currentTargetLanguage].resultPlaceholder;
-                moreInfoSection.classList.add('hidden');
-                moreInfoResultArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder;
-                initialAIDescription = '';
+                tellMeMoreButton.classList.add('hidden');
+                moreInfoArea.classList.add('hidden');
+                moreInfoArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder;
             } catch (err) {
                 console.error("Error accessing camera: ", err);
                 resultArea.textContent = i18n[currentTargetLanguage].alert_cameraError + err.message;
@@ -380,9 +464,7 @@
         });
 
         targetLanguageSelect.addEventListener('change', (event) => {
-            if (i18n[event.target.value]) {
-                updateUIStrings(event.target.value);
-            }
+            updateUIStrings(event.target.value);
         });
 
         captureButton.addEventListener('click', () => {
@@ -391,7 +473,7 @@
             const context = canvas.getContext('2d');
             context.drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
             
-            const imageDataUrl = canvas.toDataURL('image/jpeg', 0.85); 
+            const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
             capturedImage.src = imageDataUrl;
             capturedImage.classList.remove('hidden');
             
@@ -399,9 +481,11 @@
             captureButton.classList.add('hidden');
             controlsAfterCapture.classList.remove('hidden');
             promptHelper.textContent = i18n[currentTargetLanguage].promptHelperText;
-            moreInfoSection.classList.add('hidden'); 
-            resultArea.textContent = i18n[currentTargetLanguage].resultPlaceholder; 
-            initialAIDescription = '';
+            resultArea.textContent = i18n[currentTargetLanguage].resultPlaceholder; // Reset result area
+            tellMeMoreButton.classList.add('hidden'); // Hide tell me more button
+            moreInfoArea.classList.add('hidden'); // Hide more info area
+            moreInfoArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder;
+
 
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
@@ -410,28 +494,33 @@
 
         recaptureButton.addEventListener('click', () => {
             startCamera(); 
+            resultArea.textContent = i18n[currentTargetLanguage].resultPlaceholder;
+            tellMeMoreButton.classList.add('hidden');
+            moreInfoArea.classList.add('hidden');
+            moreInfoArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder;
         });
 
-        async function callGeminiAPI(prompt, loadingElement, resultDisplayElement, resultPrefix, generationConf = {}) {
-            if (!capturedImage.src || capturedImage.src === window.location.href || capturedImage.src.startsWith('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=')) { 
+        async function callGeminiAPI(promptText, base64ImageData, resultDisplayElement, loadingElement, responsePrefix, placeholderText) {
+            if (!base64ImageData) { 
                 alert(i18n[currentTargetLanguage].alert_noImage);
-                return null;
+                return;
             }
             if (!currentApiKey) {
                 alert(i18n[currentTargetLanguage].alert_apiKeyRequired);
-                return null;
+                return;
             }
 
             loadingElement.classList.remove('hidden');
             resultDisplayElement.textContent = ''; 
+            resultDisplayElement.classList.remove('hidden');
 
-            const base64ImageData = capturedImage.src.split(',')[1];
+
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${currentApiKey}`;
             
             const requestBody = {
                 contents: [{
                     parts: [
-                        { text: prompt },
+                        { text: promptText },
                         {
                             inline_data: {
                                 mime_type: "image/jpeg",
@@ -440,117 +529,90 @@
                         }
                     ]
                 }],
-                 generationConfig: { 
-                   temperature: 0.2, 
-                   maxOutputTokens: prompt === i18n[currentTargetLanguage].apiPromptInitial ? 256 : 1024, 
-                   ...generationConf 
+                 generationConfig: {
+                   temperature: 0.3, 
+                   maxOutputTokens: 4096,
                  }
             };
 
             try {
                 const response = await fetch(API_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
                     body: JSON.stringify(requestBody)
                 });
 
-                const responseText = await response.text();
-
                 if (!response.ok) {
-                    console.error('API Request Failed. Status:', response.status, 'Response Body:', responseText);
-                    let errorMessage = `HTTP ${response.status}. `;
-                    try {
-                        const errorJson = JSON.parse(responseText);
-                        if (errorJson.error && errorJson.error.message) {
-                            errorMessage += errorJson.error.message;
-                        } else {
-                             errorMessage += "Could not parse error message from response. Check console.";
-                        }
-                    } catch (e) {
-                        errorMessage += `Non-JSON error response. Check console. (First 100 chars: ${responseText.substring(0,100)})`;
-                    }
-                    resultDisplayElement.textContent = i18n[currentTargetLanguage].alert_apiError + errorMessage;
-                    return null;
+                    const errorData = await response.json();
+                    console.error('API Error Response:', errorData);
+                    throw new Error(`HTTP error! status: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
                 }
 
-                let data;
-                try {
-                    data = JSON.parse(responseText);
-                } catch (e) {
-                    console.error("Failed to parse API success response as JSON:", responseText, e);
-                    resultDisplayElement.textContent = i18n[currentTargetLanguage].alert_apiError + 'API response was successful but not valid JSON. Check console.';
-                    return null;
-                }
-
-                console.log("Raw API Response (Success):", JSON.stringify(data, null, 2)); // Crucial log
+                const data = await response.json();
                 
-                if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0 && data.candidates[0].content.parts[0].text) {
-                    const rawDescription = data.candidates[0].content.parts[0].text;
-                    const cleanedDescription = cleanApiResponse(rawDescription);
-                    resultDisplayElement.textContent = resultPrefix + cleanedDescription;
-                    return cleanedDescription;
-                } else if (data.candidates && data.candidates.length > 0 && data.candidates[0].finishReason && data.candidates[0].finishReason !== "STOP") {
-                    console.warn("API call finished with reason:", data.candidates[0].finishReason, "Safety Ratings:", data.candidates[0].safetyRatings);
-                    let finishMessage = `${i18n[currentTargetLanguage].alert_apiError} Request finished with reason: ${data.candidates[0].finishReason}.`;
-                    if (data.candidates[0].safetyRatings) {
-                        finishMessage += ` Safety Ratings: ${data.candidates[0].safetyRatings.map(r => `${r.category}: ${r.probability}`).join(', ')}`;
+                if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
+                    const description = data.candidates[0].content.parts[0].text;
+                    resultDisplayElement.textContent = responsePrefix + description;
+                    if (resultDisplayElement === resultArea) { // Only show "Tell me more" after initial description
+                        tellMeMoreButton.classList.remove('hidden');
                     }
-                    resultDisplayElement.textContent = finishMessage;
-                } else if (data.promptFeedback?.blockReason) {
+                } else if (data.promptFeedback && data.promptFeedback.blockReason) {
                     let blockMessage = `${i18n[currentTargetLanguage].alert_apiError} Blocked by API. Reason: ${data.promptFeedback.blockReason}`;
                      if (data.promptFeedback.safetyRatings) {
-                        blockMessage += `\nDetails: ${data.promptFeedback.safetyRatings.map(r => `${r.category}: ${r.probability}`).join(', ')}`;
+                        blockMessage += `\nDetails: ${data.promptFeedback.safetyRatings.map(r => `${r.category} was ${r.probability}`).join(', ')}`;
                     }
                     resultDisplayElement.textContent = blockMessage;
-                } else {
-                    console.warn("Unexpected API response structure (no usable content or known error):", data);
-                    resultDisplayElement.textContent = i18n[currentTargetLanguage].alert_apiError + 'Could not parse useful content from API response. Check console for raw response.';
+                    if (resultDisplayElement === resultArea) tellMeMoreButton.classList.add('hidden');
                 }
+                else {
+                    console.warn("Unexpected API response structure:", data);
+                    resultDisplayElement.textContent = i18n[currentTargetLanguage].alert_apiError + 'Could not parse description from API response. Check console for details.';
+                    if (resultDisplayElement === resultArea) tellMeMoreButton.classList.add('hidden');
+                }
+
             } catch (error) {
-                console.error("Error calling Gemini API (network or other script error):", error);
+                console.error("Error calling Gemini API:", error);
                 resultDisplayElement.textContent = i18n[currentTargetLanguage].alert_apiError + error.message;
+                if (resultDisplayElement === resultArea) tellMeMoreButton.classList.add('hidden');
             } finally {
                 loadingElement.classList.add('hidden');
+                if (resultDisplayElement.textContent.trim() === '') {
+                     resultDisplayElement.textContent = placeholderText;
+                }
             }
-            return null;
         }
 
-        describeButtonPrimary.addEventListener('click', async () => {
-            moreInfoSection.classList.add('hidden'); 
-            moreInfoResultArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder; 
 
-            const description = await callGeminiAPI(
-                i18n[currentTargetLanguage].apiPromptInitial, 
-                loadingIndicator, 
-                resultArea, 
-                i18n[currentTargetLanguage].apiResponsePrefix
+        describeButton.addEventListener('click', async () => {
+            const base64ImageData = capturedImage.src.split(',')[1];
+            tellMeMoreButton.classList.add('hidden'); // Hide before new request
+            moreInfoArea.classList.add('hidden');     // Hide more info area
+            moreInfoArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder; // Reset more info area
+            
+            await callGeminiAPI(
+                i18n[currentTargetLanguage].apiPrompt,
+                base64ImageData,
+                resultArea,
+                loadingIndicator,
+                i18n[currentTargetLanguage].apiResponsePrefix,
+                i18n[currentTargetLanguage].resultPlaceholder
             );
-            if (description) {
-                initialAIDescription = description; 
-                moreInfoSection.classList.remove('hidden');
-                tellMeMoreButton.classList.remove('hidden'); 
-                moreInfoLoadingIndicator.classList.add('hidden'); 
-            }
         });
 
         tellMeMoreButton.addEventListener('click', async () => {
-            if (!initialAIDescription) {
-                console.warn("No initial description available for 'tell me more'.");
-                moreInfoResultArea.textContent = "請先取得初步描述。";
-                return;
-            }
-            tellMeMoreButton.classList.add('hidden'); 
-
-            let detailedPrompt = i18n[currentTargetLanguage].apiPromptDetailed.replace('{initialDescription}', initialAIDescription);
-            
+            const base64ImageData = capturedImage.src.split(',')[1];
             await callGeminiAPI(
-                detailedPrompt, 
-                moreInfoLoadingIndicator, 
-                moreInfoResultArea, 
-                i18n[currentTargetLanguage].moreInfoResponsePrefix,
-                { temperature: 0.3, maxOutputTokens: 1024 } 
+                i18n[currentTargetLanguage].apiPromptMoreInfo,
+                base64ImageData,
+                moreInfoArea,
+                moreInfoLoadingIndicator, // Use dedicated loader for this
+                i18n[currentTargetLanguage].moreInfoPrefix,
+                i18n[currentTargetLanguage].moreInfoPlaceholder
             );
         });
+
 
         backToSettingsButton.addEventListener('click', () => {
             if (stream) {
@@ -561,19 +623,26 @@
             capturedImage.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="; 
             capturedImage.classList.add('hidden');
             resultArea.textContent = i18n[currentTargetLanguage].resultPlaceholder; 
+            tellMeMoreButton.classList.add('hidden');
+            moreInfoArea.classList.add('hidden');
+            moreInfoArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder;
             controlsAfterCapture.classList.add('hidden');
-            moreInfoSection.classList.add('hidden');
-            moreInfoResultArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder;
-            initialAIDescription = '';
             videoPreview.classList.remove('hidden'); 
             captureButton.classList.remove('hidden'); 
         });
 
+        // Initial load
         loadSettings();
-        if (!currentApiKey) {
+        // Always show settings first unless API key is already set and you want to auto-start
+        if (currentApiKey && false) { // Set to true if you want to auto-skip settings with a saved key
+             settingsView.classList.add('hidden');
+             appView.classList.remove('hidden');
+             startCamera();
+        } else {
             settingsView.classList.remove('hidden');
             appView.classList.add('hidden');
         }
+
     </script>
 </body>
 </html>
