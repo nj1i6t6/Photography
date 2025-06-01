@@ -81,7 +81,7 @@
             background-color: #545b62;
         }
         button.tertiary {
-            background-color: #28a745; /* Green for "more info" */
+            background-color: #28a745; 
         }
         button.tertiary:hover {
             background-color: #1e7e34;
@@ -118,7 +118,7 @@
             font-size: 0.95em;
         }
         #moreInfoResultArea {
-            background-color: #e0e0e0; /* Slightly different for distinction */
+            background-color: #e0e0e0; 
         }
         .hidden {
             display: none !important;
@@ -227,7 +227,7 @@
         let stream;
         let currentApiKey = '';
         let currentTargetLanguage = 'zh-TW';
-        let initialAIDescription = ''; // To store the first AI response
+        let initialAIDescription = ''; 
 
         const i18n = {
             'zh-TW': {
@@ -242,10 +242,9 @@
                 backToSettingsButton: '返回設定',
                 alert_apiKeyRequired: '請先輸入你的 API 金鑰啦！',
                 alert_cameraError: '哎呀，相機打不開捏: ',
-                alert_apiError: 'API 請求失敗，再試一次看看？ ',
+                alert_apiError: 'API 請求失敗：', // Modified for better concatenation
                 alert_noImage: '要先拍張照片才能分析啦！',
                 promptHelperText: '照片拍好囉！按「這是什麼？」讓 AI 幫你看。',
-                
                 apiPromptInitial: "這張照片裡是什麼？請你扮演一位很懂台灣用語的導遊，用台灣人一聽就懂的輕鬆口語（繁體中文），超簡潔地告訴我：1. 這個東西的「品名」(台灣人常怎麼稱呼它)。 2. 它最「主要的用途或特色」(挑一個最重要的講)。 3. 「價格」大概多少 (如果照片裡看得到的話)。請務必直接給我純文字答案，不要用任何項目符號、星號、井字號之類的markdown格式，一句話能講完重點最好，拜託了！",
                 apiPromptDetailed: "針對你剛剛說的「{initialDescription}」，可以再多告訴我一些嗎？例如：在台灣，這個東西通常要怎麼用啊？有沒有什麼特別要注意的地方？或是在哪裡比較容易買到或體驗到？一樣用台灣人聽得懂的口語（繁體中文）解釋喔，請給我純文字，不要用 markdown 格式，謝謝！",
                 apiResponsePrefix: 'AI 說：\n',
@@ -253,7 +252,7 @@
                 moreInfoPlaceholder: '更多細節會在這裡出現...',
                 moreInfoResponsePrefix: 'AI 補充說明：\n'
             },
-            'en': { // Basic English translations, can be improved for colloquialism
+            'en': { 
                 apiKeyLabel: 'API Key:',
                 languageLabel: 'Target Language:',
                 saveSettingsButton: 'Save Settings & Start',
@@ -265,7 +264,7 @@
                 backToSettingsButton: 'Back to Settings',
                 alert_apiKeyRequired: 'Please enter your API Key.',
                 alert_cameraError: 'Could not start camera: ',
-                alert_apiError: 'API request failed. Try again? ',
+                alert_apiError: 'API request failed: ', // Modified
                 alert_noImage: 'Please capture an image first!',
                 promptHelperText: 'Photo captured! Click "What\'s this?" for AI to analyze.',
                 apiPromptInitial: "What's in this picture? Act as a tour guide familiar with common English. Briefly tell me: 1. Its 'name' (common term). 2. Its 'main purpose or feature' (most important). 3. 'Price' (if visible). Please provide a plain text answer, no markdown (like bullets or asterisks). One sentence is best. Thanks!",
@@ -275,16 +274,13 @@
                 moreInfoPlaceholder: 'More details will appear here...',
                 moreInfoResponsePrefix: 'AI adds:\n'
             },
-            // Add ja, ko with similar two-stage prompts if needed
         };
 
         function cleanApiResponse(text) {
             if (!text) return '';
-            // Remove common markdown-like characters, especially leading/trailing ones on lines or around words.
-            // This is a basic cleanup; more sophisticated regex might be needed if AI is stubborn.
-            let cleanedText = text.replace(/^[*\-]\s+/gm, ''); // Remove leading bullets/hyphens
-            cleanedText = cleanedText.replace(/(\*\*|__)(.*?)\1/g, '$2'); // Remove bold
-            cleanedText = cleanedText.replace(/(\*|_)(.*?)\1/g, '$2');   // Remove italic
+            let cleanedText = text.replace(/^[*\-]\s+/gm, ''); 
+            cleanedText = cleanedText.replace(/(\*\*|__)(.*?)\1/g, '$2'); 
+            cleanedText = cleanedText.replace(/(\*|_)(.*?)\1/g, '$2');  
             return cleanedText.trim();
         }
         
@@ -403,10 +399,9 @@
             captureButton.classList.add('hidden');
             controlsAfterCapture.classList.remove('hidden');
             promptHelper.textContent = i18n[currentTargetLanguage].promptHelperText;
-            moreInfoSection.classList.add('hidden'); // Hide more info on new capture
-            resultArea.textContent = i18n[currentTargetLanguage].resultPlaceholder; // Reset result area
+            moreInfoSection.classList.add('hidden'); 
+            resultArea.textContent = i18n[currentTargetLanguage].resultPlaceholder; 
             initialAIDescription = '';
-
 
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
@@ -420,11 +415,11 @@
         async function callGeminiAPI(prompt, loadingElement, resultDisplayElement, resultPrefix, generationConf = {}) {
             if (!capturedImage.src || capturedImage.src === window.location.href || capturedImage.src.startsWith('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=')) { 
                 alert(i18n[currentTargetLanguage].alert_noImage);
-                return;
+                return null;
             }
             if (!currentApiKey) {
                 alert(i18n[currentTargetLanguage].alert_apiKeyRequired);
-                return;
+                return null;
             }
 
             loadingElement.classList.remove('hidden');
@@ -446,9 +441,9 @@
                     ]
                 }],
                  generationConfig: { 
-                   temperature: 0.2, // Lower for more factual initial response
-                   maxOutputTokens: prompt === i18n[currentTargetLanguage].apiPromptInitial ? 256 : 1024, // Shorter for initial, longer for detailed
-                   ...generationConf // Allow overriding
+                   temperature: 0.2, 
+                   maxOutputTokens: prompt === i18n[currentTargetLanguage].apiPromptInitial ? 256 : 1024, 
+                   ...generationConf 
                  }
             };
 
@@ -459,41 +454,70 @@
                     body: JSON.stringify(requestBody)
                 });
 
+                const responseText = await response.text();
+
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    console.error('API Error Response:', errorData);
-                    throw new Error(`HTTP ${response.status}: ${errorData.error?.message || 'Unknown API error'}`);
+                    console.error('API Request Failed. Status:', response.status, 'Response Body:', responseText);
+                    let errorMessage = `HTTP ${response.status}. `;
+                    try {
+                        const errorJson = JSON.parse(responseText);
+                        if (errorJson.error && errorJson.error.message) {
+                            errorMessage += errorJson.error.message;
+                        } else {
+                             errorMessage += "Could not parse error message from response. Check console.";
+                        }
+                    } catch (e) {
+                        errorMessage += `Non-JSON error response. Check console. (First 100 chars: ${responseText.substring(0,100)})`;
+                    }
+                    resultDisplayElement.textContent = i18n[currentTargetLanguage].alert_apiError + errorMessage;
+                    return null;
                 }
 
-                const data = await response.json();
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    console.error("Failed to parse API success response as JSON:", responseText, e);
+                    resultDisplayElement.textContent = i18n[currentTargetLanguage].alert_apiError + 'API response was successful but not valid JSON. Check console.';
+                    return null;
+                }
+
+                console.log("Raw API Response (Success):", JSON.stringify(data, null, 2)); // Crucial log
                 
-                if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+                if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0 && data.candidates[0].content.parts[0].text) {
                     const rawDescription = data.candidates[0].content.parts[0].text;
-                    const cleanedDescription = cleanApiResponse(rawDescription); // Clean the response
+                    const cleanedDescription = cleanApiResponse(rawDescription);
                     resultDisplayElement.textContent = resultPrefix + cleanedDescription;
-                    return cleanedDescription; // Return cleaned text for further use
+                    return cleanedDescription;
+                } else if (data.candidates && data.candidates.length > 0 && data.candidates[0].finishReason && data.candidates[0].finishReason !== "STOP") {
+                    console.warn("API call finished with reason:", data.candidates[0].finishReason, "Safety Ratings:", data.candidates[0].safetyRatings);
+                    let finishMessage = `${i18n[currentTargetLanguage].alert_apiError} Request finished with reason: ${data.candidates[0].finishReason}.`;
+                    if (data.candidates[0].safetyRatings) {
+                        finishMessage += ` Safety Ratings: ${data.candidates[0].safetyRatings.map(r => `${r.category}: ${r.probability}`).join(', ')}`;
+                    }
+                    resultDisplayElement.textContent = finishMessage;
                 } else if (data.promptFeedback?.blockReason) {
-                    let blockMessage = `${i18n[currentTargetLanguage].alert_apiError} Blocked. Reason: ${data.promptFeedback.blockReason}`;
+                    let blockMessage = `${i18n[currentTargetLanguage].alert_apiError} Blocked by API. Reason: ${data.promptFeedback.blockReason}`;
                      if (data.promptFeedback.safetyRatings) {
                         blockMessage += `\nDetails: ${data.promptFeedback.safetyRatings.map(r => `${r.category}: ${r.probability}`).join(', ')}`;
                     }
                     resultDisplayElement.textContent = blockMessage;
                 } else {
-                    console.warn("Unexpected API response:", data);
-                    resultDisplayElement.textContent = i18n[currentTargetLanguage].alert_apiError + 'Could not parse response. Check console.';
+                    console.warn("Unexpected API response structure (no usable content or known error):", data);
+                    resultDisplayElement.textContent = i18n[currentTargetLanguage].alert_apiError + 'Could not parse useful content from API response. Check console for raw response.';
                 }
             } catch (error) {
-                console.error("Error calling Gemini API:", error);
+                console.error("Error calling Gemini API (network or other script error):", error);
                 resultDisplayElement.textContent = i18n[currentTargetLanguage].alert_apiError + error.message;
             } finally {
                 loadingElement.classList.add('hidden');
             }
-            return null; // Return null on failure or no text
+            return null;
         }
 
         describeButtonPrimary.addEventListener('click', async () => {
-            moreInfoSection.classList.add('hidden'); // Hide old "more info" if any
-            moreInfoResultArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder; // Reset placeholder
+            moreInfoSection.classList.add('hidden'); 
+            moreInfoResultArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder; 
 
             const description = await callGeminiAPI(
                 i18n[currentTargetLanguage].apiPromptInitial, 
@@ -502,10 +526,10 @@
                 i18n[currentTargetLanguage].apiResponsePrefix
             );
             if (description) {
-                initialAIDescription = description; // Save the cleaned description
+                initialAIDescription = description; 
                 moreInfoSection.classList.remove('hidden');
-                tellMeMoreButton.classList.remove('hidden'); // Show button
-                moreInfoLoadingIndicator.classList.add('hidden'); // Ensure loader is hidden
+                tellMeMoreButton.classList.remove('hidden'); 
+                moreInfoLoadingIndicator.classList.add('hidden'); 
             }
         });
 
@@ -515,7 +539,7 @@
                 moreInfoResultArea.textContent = "請先取得初步描述。";
                 return;
             }
-            tellMeMoreButton.classList.add('hidden'); // Hide button while loading
+            tellMeMoreButton.classList.add('hidden'); 
 
             let detailedPrompt = i18n[currentTargetLanguage].apiPromptDetailed.replace('{initialDescription}', initialAIDescription);
             
@@ -524,11 +548,9 @@
                 moreInfoLoadingIndicator, 
                 moreInfoResultArea, 
                 i18n[currentTargetLanguage].moreInfoResponsePrefix,
-                { temperature: 0.3, maxOutputTokens: 1024 } // Slightly more creative/longer for details
+                { temperature: 0.3, maxOutputTokens: 1024 } 
             );
-            // No need to show the button again, user can re-trigger initial if needed or recapture.
         });
-
 
         backToSettingsButton.addEventListener('click', () => {
             if (stream) {
@@ -551,12 +573,6 @@
         if (!currentApiKey) {
             settingsView.classList.remove('hidden');
             appView.classList.add('hidden');
-        } else {
-            // If API key exists, still show settings for language confirmation or let user click start.
-            // If you want to auto-start, uncomment below and ensure appView starts correctly.
-            // settingsView.classList.add('hidden');
-            // appView.classList.remove('hidden');
-            // startCamera();
         }
     </script>
 </body>
