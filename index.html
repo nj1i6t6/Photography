@@ -108,7 +108,6 @@
             background-color: #e9ecef;
             border-radius: var(--border-radius);
             min-height: 50px;
-            /* white-space: pre-wrap;  Remove this as Markdown parsing will handle new lines */
             word-wrap: break-word;
             font-size: 0.95em;
         }
@@ -149,6 +148,22 @@
         .info-display-area strong {
             font-weight: bold;
         }
+        .info-display-area table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1em;
+            margin-bottom: 1em;
+        }
+        .info-display-area th, .info-display-area td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .info-display-area th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+
 
         .hidden {
             display: none !important;
@@ -276,6 +291,9 @@
                 promptHelperText: '照片拍好囉！按「這是什麼？」讓 AI 幫你看。',
                 apiPrompt: `這張照片裡是什麼東西？請你嚴格依照以下「回覆樣板」的格式，並使用輕鬆、口語化的台灣用語（繁體中文）來回答。請根據圖片內容填寫 [方括號] 中的資訊。如果某項資訊在圖片中無法辨識，請在對應的 [方括號] 中填寫「看不太清楚耶」或「圖片裡沒有顯示喔」。如果沒有特別的品牌或型號資訊，該部分也填寫「看不太清楚耶」。
 
+**如果圖片主要內容是菜單或價目表：**
+請讓「品名」為「菜單」或「價目表」，「用途」為「提供餐點資訊與價格」，「價格」為「包含多項品項價格」。並且在「其他觀察到的資訊」中特別提醒：「這似乎是一份菜單喔！點擊『告訴我更多』可以查看詳細翻譯與價格對照。」
+
 回覆樣板：
 這叫做「[物品的台灣口語化通稱或品名]」。
 用途（或主要成分，依圖片判斷）是「[描述用途/主要成分/特色]」。
@@ -285,13 +303,19 @@
 請確保回答自然流暢，謝謝！`,
                 apiResponsePrefix: 'AI 說：\n',
                 tellMeMoreButtonLabel: '告訴我更多關於它',
-                apiPromptMoreInfo: `針對這張圖片裡的主要物品，請提供比之前初步描述更詳細的補充資訊。內容可以包含（但不限於）：
-- **使用教學**：如何正確或有效地使用它？有什麼步驟或技巧？
-- **料理建議**（如果適用）：如果是食材或食品，有哪些推薦的料理方式或搭配？
-- **保養存放**（如果適用）：如何保養、清潔或存放這個物品？
-- **哪裡買/取得**：通常可以在哪類商店或地方找到它？
-- **相關提醒**：使用上有沒有什麼需要特別注意的地方？
-請用輕鬆口語、條理分明的台灣中文來介紹，讓內容更豐富實用。如果某些方面不適用或資訊不足，可以略過或說明。請使用 Markdown 格式（例如標題、列表、粗體）來讓內容更易讀，但不要使用太複雜的 Markdown 符號。`,
+                apiPromptMoreInfo: `請詳細分析這張圖片的內容。
+
+**如果這是一份菜單或價目表：**
+請將其中所有清晰可見的品項，逐一列出原文、其在台灣口語化繁體中文的翻譯、以及對應的價格。請使用 Markdown 列表格式，確保清晰易讀。
+**格式範例：**
+- 原文: Fried Rice, 翻譯: 炒飯, 價格: NT$80
+- 原文: Pork Noodles, 翻譯: 豬肉麵, 價格: NT$95
+若價格不明顯，可寫「價格不明」。若某品項的原文或翻譯不明顯，也請誠實說明。
+
+**如果這不是菜單，而是其他一般物品：**
+請針對圖片中的主要物品，提供比之前初步描述更詳細的補充資訊。內容可以包含（但不限於）：使用教學、料理建議（如果適用）、保養存放（如果適用）、哪裡買/取得、相關提醒。
+
+無論哪種情況，請用輕鬆口語、條理分明的台灣中文來介紹，讓內容更豐富實用。請使用 Markdown 格式（例如標題、列表、粗體）來讓內容更易讀，但不要使用太複雜的 Markdown 符號。`,
                 moreInfoPlaceholder: '更多詳細資訊會顯示在這裡～',
                 moreInfoPrefix: 'AI 補充說明：\n'
             },
@@ -312,6 +336,9 @@
                 promptHelperText: 'Photo captured! Click "What\'s this?" for AI to analyze.',
                 apiPrompt: `What is in this picture? Please strictly follow the "Response Template" format below and use simple, clear English. Fill in the information in [square brackets] based on the image content. If some information cannot be identified from the image, please write "Not clear" or "Not shown in image" in the corresponding [bracket]. If no specific brand or model information is available, also write "Not clear".
 
+**If the main content of the image is a menu or price list:**
+Please set the "Name" to "Menu" or "Price List", "Purpose" to "Provides meal information and prices", and "Price" to "Contains prices for multiple items". Also, in "Other observed information", specifically prompt the user: "This seems to be a menu! Click 'Tell me more' to see detailed translations and prices."
+
 Response Template:
 This is called "[common name or product name]".
 Its purpose (or main ingredients, judge by image) is "[describe purpose/main ingredients/features]".
@@ -321,13 +348,19 @@ If there are clear brand names, model numbers, or other important text in the im
 Please ensure the answer is natural and fluent. Thanks!`,
                 apiResponsePrefix: 'AI says:\n',
                 tellMeMoreButtonLabel: 'Tell me more about it',
-                apiPromptMoreInfo: `Regarding the main item in this image, please provide more detailed supplementary information than the initial description. Content can include (but is not limited to):
-- **Usage instructions**: How to use it correctly or effectively? Any steps or tips?
-- **Cooking suggestions** (if applicable): If it's an ingredient or food, what are recommended cooking methods or pairings?
-- **Maintenance/Storage** (if applicable): How to maintain, clean, or store this item?
-- **Where to buy/get it**: Where can this item typically be found or purchased?
-- **Relevant reminders**: Are there any special precautions for use?
-Please use clear, well-organized English to introduce, making the content richer and more practical. If some aspects are not applicable or information is insufficient, you can skip or explain. Please use Markdown format (e.g., headings, lists, bold text) to make the content more readable, but avoid overly complex Markdown symbols.`,
+                apiPromptMoreInfo: `Please analyze the content of this image in detail.
+
+**If this is a menu or price list:**
+Please list all clearly visible items, including their original text, their translation into simple, clear English, and their corresponding prices. Please use Markdown list format to ensure clarity and readability.
+**Format example:**
+- Original: Fried Rice, Translation: Fried Rice, Price: $80
+- Original: Pork Noodles, Translation: Pork Noodles, Price: $95
+If the price is unclear, write "Price unclear". If an item's original text or translation is unclear, please state it honestly.
+
+**If this is not a menu, but another general item:**
+Please provide more detailed supplementary information about the main item in the picture than the initial description. Content can include (but is not limited to): usage instructions, cooking suggestions (if applicable), maintenance/storage (if applicable), where to buy/get it, relevant reminders.
+
+In either case, please use clear, well-organized English to introduce, making the content richer and more practical. Please use Markdown format (e.g., headings, lists, bold text) to make the content more readable, but avoid overly complex Markdown symbols.`,
                 moreInfoPlaceholder: 'More detailed information will appear here!',
                 moreInfoPrefix: 'AI adds:\n'
             },
@@ -348,6 +381,9 @@ Please use clear, well-organized English to introduce, making the content richer
                 promptHelperText: '写真が撮影されました。「これは何？」をクリックしてAIに解析させてください。',
                 apiPrompt: `この写真には何が写っていますか？以下の「回答テンプレート」の形式に厳密に従い、わかりやすく口語的な日本語で回答してください。画像の内容に基づいて[角括弧]内の情報を記入してください。画像から情報が特定できない場合は、対応する[角括弧]に「不明瞭です」または「画像に表示されていません」と記入してください。特定のブランドやモデル情報がない場合も「不明瞭です」と記入してください。
 
+**画像が主にメニューまたは価格表である場合：**
+「品名」を「メニュー」または「価格表」、「用途」を「食事情報と価格の提供」、「価格」を「複数の品目の価格を含む」としてください。さらに、「その他観察された情報」で「これはメニューのようです！「もっと詳しく教えて」をクリックすると、詳細な翻訳と価格対照を確認できます。」とユーザーに明確に促してください。
+
 回答テンプレート：
 これは「[物品の一般的な呼称または品名]」と呼ばれます。
 用途（または主な成分、画像から判断）は「[用途/主な成分/特徴を記述]」です。
@@ -357,13 +393,19 @@ Please use clear, well-organized English to introduce, making the content richer
 回答は自然で流暢になるようお願いします。ありがとうございます！`,
                 apiResponsePrefix: 'AIの解析：\n',
                 tellMeMoreButtonLabel: 'もっと詳しく教えて',
-                apiPromptMoreInfo: `この画像の主要なアイテムについて、最初の説明よりも詳細な補足情報を提供してください。内容は以下を含むことができます（ただしこれらに限定されません）：
-- **使用方法**：正しくまたは効果的に使用する方法は？手順やコツはありますか？
-- **料理の提案**（該当する場合）：食材や食品の場合、おすすめの調理方法や組み合わせは何ですか？
-- **メンテナンス/保管**（該当する場合）：このアイテムをどのように維持、清掃、または保管しますか？
-- **購入/入手場所**：このアイテムは通常どこで見つけたり購入したりできますか？
-- **関連する注意点**：使用にあたって特に注意すべき点はありますか？
-わかりやすく整理された日本語で紹介し、内容をより豊かで実用的なものにしてください。一部の側面が該当しない場合や情報が不十分な場合は、スキップまたは説明してください。内容を読みやすくするためにMarkdown形式（例：見出し、リスト、太字）を使用してください。ただし、複雑すぎるMarkdown記号は避けてください。`,
+                apiPromptMoreInfo: `この画像のコンテンツを詳細に分析してください。
+
+**これがメニューまたは価格表である場合：**
+画像に表示されているすべての項目について、原文、わかりやすい日本語での翻訳、および対応する価格を、Markdownのリスト形式で明確かつ読みやすくリストアップしてください。
+**フォーマット例：**
+- 原文: Fried Rice, 翻訳: チャーハン, 価格: 80円
+- 原文: Pork Noodles, 翻訳: 豚肉麺, 価格: 95円
+価格が不明な場合は「価格不明」と記述してください。品目の原文や翻訳が不明確な場合も正直に説明してください。
+
+**これがメニューではなく、他の一般的なアイテムである場合：**
+画像内の主要なアイテムについて、最初の説明よりも詳細な補足情報を提供してください。内容は以下を含むことができます（ただしこれらに限定されません）：使用方法、料理の提案（該当する場合）、メンテナンス/保管（該当する場合）、購入/入手場所、関連する注意点。
+
+どちらの場合も、内容をより豊かで実用的なものにするため、わかりやすく整理された日本語で紹介してください。内容を読みやすくするためにMarkdown形式（例：見出し、リスト、太字）を使用してください。ただし、複雑すぎるMarkdown記号は避けてください。`,
                 moreInfoPlaceholder: 'さらに詳しい情報はこちらに表示されます！',
                 moreInfoPrefix: 'AIの補足説明：\n'
             },
@@ -384,6 +426,9 @@ Please use clear, well-organized English to introduce, making the content richer
                 promptHelperText: '사진이 촬영되었습니다! AI 분석을 위해 "이게 뭐예요?"를 클릭하세요.',
                 apiPrompt: `이 사진에 무엇이 있습니까? 아래 "응답 템플릿" 형식을 엄격히 따르고 간단하고 명확한 한국어로 답변하십시오. 이미지 내용을 기반으로 [대괄호] 안의 정보를 입력하십시오. 이미지에서 일부 정보를 식별할 수 없는 경우 해당 [대괄호]에 "명확하지 않음" 또는 "이미지에 표시되지 않음"이라고 작성하십시오. 특정 브랜드나 모델 정보가 없는 경우에도 "명확하지 않음"이라고 작성하십시오.
 
+**이미지의 주요 내용이 메뉴 또는 가격표인 경우:**
+"품명"을 "메뉴" 또는 "가격표"로, "용도"를 "식사 정보 및 가격 제공"으로, "가격"을 "여러 항목의 가격 포함"으로 설정하십시오. 또한, "기타 관찰된 정보"에 "이것은 메뉴인 것 같습니다! '자세히 알려줘'를 클릭하면 자세한 번역 및 가격 대조를 볼 수 있습니다."라고 사용자에게 명확하게 안내하십시오.
+
 응답 템플릿:
 이것은 "[일반적인 이름 또는 제품 이름]"이라고 합니다.
 용도(또는 주요 성분, 이미지로 판단)는 "[용도/주요 성분/특징 설명]"입니다.
@@ -393,13 +438,19 @@ Please use clear, well-organized English to introduce, making the content richer
 답변이 자연스럽고 유창하도록 해주십시오. 감사합니다!`,
                 apiResponsePrefix: 'AI 설명：\n',
                 tellMeMoreButtonLabel: '자세히 알려줘',
-                apiPromptMoreInfo: `이 이미지의 주요 항목에 대해 초기 설명보다 자세한 보충 정보를 제공하십시오. 내용은 다음을 포함할 수 있지만 이에 국한되지는 않습니다:
-- **사용 지침**: 올바르게 또는 효과적으로 사용하는 방법은 무엇입니까? 단계나 팁이 있습니까?
-- **요리 제안** (해당하는 경우): 재료나 음식인 경우 권장되는 요리 방법이나 조합은 무엇입니까?
-- **유지 관리/보관** (해당하는 경우): 이 항목을 어떻게 유지, 청소 또는 보관합니까?
-- **구입처/입수처**: 이 항목은 일반적으로 어디에서 찾거나 구입할 수 있습니까?
-- **관련 알림**: 사용 시 특별히 주의해야 할 사항이 있습니까?
-명확하고 잘 정리된 한국어로 소개하여 내용을 더 풍부하고 실용적으로 만드십시오. 일부 측면이 적용되지 않거나 정보가 불충분한 경우 건너뛰거나 설명할 수 있습니다. 내용을 더 쉽게 읽을 수 있도록 Markdown 형식(예: 제목, 목록, 굵은 텍스트)을 사용하십시오. 그러나 너무 복잡한 Markdown 기호는 피하십시오.`,
+                apiPromptMoreInfo: `이 이미지의 내용을 자세히 분석하십시오.
+
+**이것이 메뉴 또는 가격표인 경우:**
+이미지에서 명확하게 보이는 모든 항목의 원문, 한국어로의 간결한 번역, 그리고 해당 가격을 목록 형식으로 명확하고 읽기 쉽게 나열하십시오.
+**형식 예시:**
+- 원문: Fried Rice, 번역: 볶음밥, 가격: 80원
+- 원문: Pork Noodles, 번역: 돼지고기 국수, 가격: 95원
+가격이 불분명한 경우 "가격 불분명"이라고 작성하십시오. 항목의 원문이나 번역이 불분명한 경우에도 솔직하게 설명하십시오.
+
+**이것이 메뉴가 아닌 다른 일반적인 품목인 경우:**
+사진 속 주요 품목에 대해 이전의 초기 설명보다 더 자세한 보충 정보를 제공하십시오. 내용은 다음을 포함할 수 있지만 이에 국한되지는 않습니다: 사용 지침, 요리 제안 (해당하는 경우), 유지 관리/보관 (해당하는 경우), 구입처/입수처, 관련 주의사항.
+
+어떤 경우든, 내용을 더 풍부하고 실용적으로 만들기 위해 간결하고 체계적인 한국어로 소개하십시오. 내용을 더 쉽게 읽을 수 있도록 Markdown 형식(예: 제목, 목록, 굵은 텍스트)을 사용하십시오. 그러나 너무 복잡한 Markdown 기호는 피하십시오.`,
                 moreInfoPlaceholder: '더 자세한 정보가 여기에 표시됩니다!',
                 moreInfoPrefix: 'AI 추가 설명：\n'
             }
@@ -420,8 +471,9 @@ Please use clear, well-organized English to introduce, making the content richer
                     } else {
                         // Only update if it's the default placeholder or empty
                         const currentContent = el.textContent.trim();
+                        // Check if current content matches any language's placeholder value (or is empty)
                         const placeholderValues = Object.values(i18n).map(translations => translations[key]).filter(Boolean);
-                        if (el.textContent.trim() === '' || placeholderValues.some(pVal => currentContent.includes(pVal.substring(0, 10)))) { // Check first 10 chars for partial match
+                        if (el.textContent.trim() === '' || placeholderValues.some(pVal => currentContent.includes(pVal.substring(0, Math.min(currentContent.length, pVal.length))))) { // Match partial string for robustness
                            el.textContent = i18n[lang][key];
                         }
                     }
@@ -571,7 +623,7 @@ Please use clear, well-organized English to introduce, making the content richer
                 }],
                  generationConfig: {
                    temperature: 0.3, 
-                   maxOutputTokens: 4096, // <-- Changed to 4096
+                   maxOutputTokens: 4096, // <-- Already 4096 from previous step
                  }
             };
 
@@ -678,7 +730,7 @@ Please use clear, well-organized English to introduce, making the content richer
 
         // Initial load
         loadSettings();
-        // Always show settings first unless API key is already set and you want to auto-start
+        // Always show settings first unless API key is already set and you want to auto-skip settings with a saved key
         if (currentApiKey && false) { // Set to true if you want to auto-skip settings with a saved key
              settingsView.classList.add('hidden');
              appView.classList.remove('hidden');
