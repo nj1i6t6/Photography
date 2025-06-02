@@ -48,13 +48,17 @@
         }
         input[type="text"],
         input[type="password"],
-        select {
+        select,
+        input[type="range"] {
             width: calc(100% - 22px);
             padding: 10px;
             margin-bottom: 15px;
             border: 1px solid #ccc;
             border-radius: var(--border-radius);
             font-size: 1em;
+        }
+        input[type="range"] {
+             padding: 0; /* Range input padding adjustment */
         }
         button {
             background-color: var(--primary-color);
@@ -70,8 +74,8 @@
             transition: background-color 0.3s ease;
             width: 100%;
             box-sizing: border-box;
-            margin-top: 5px; /* Added some margin for buttons */
-            margin-bottom: 5px; /* Added some margin for buttons */
+            margin-top: 5px;
+            margin-bottom: 5px;
         }
         button:hover {
             background-color: #0056b3;
@@ -92,7 +96,8 @@
             border: 1px solid #ccc;
             background-color: #000;
             border-radius: var(--border-radius);
-            margin-bottom: 15px;
+            margin-bottom: 10px; /* Adjusted margin */
+            cursor: pointer; /* For tap-to-focus hint */
         }
         #capturedImage {
             max-width: 100%;
@@ -102,7 +107,7 @@
             margin-top: 15px;
             display: none;
         }
-        .info-display-area { /* Consolidated style for resultArea and moreInfoArea */
+        .info-display-area {
             margin-top: 20px;
             padding: 15px;
             background-color: #e9ecef;
@@ -111,7 +116,6 @@
             word-wrap: break-word;
             font-size: 0.95em;
         }
-        /* Styles for Markdown elements within info-display-area */
         .info-display-area h1, 
         .info-display-area h2, 
         .info-display-area h3, 
@@ -120,7 +124,7 @@
         .info-display-area h6 {
             margin-top: 1em;
             margin-bottom: 0.5em;
-            color: var(--primary-color); /* Headings can use primary color */
+            color: var(--primary-color);
             font-weight: bold;
         }
         .info-display-area h1 { font-size: 1.5em; }
@@ -163,8 +167,6 @@
             background-color: #f2f2f2;
             font-weight: bold;
         }
-
-
         .hidden {
             display: none !important;
         }
@@ -183,13 +185,25 @@
         }
         .button-group {
             display: flex;
-            gap: 10px;
-            margin-top: 10px;
+            gap: 10px; /* Spacing between buttons in a group */
+            margin-top: 10px; /* Spacing between button groups */
         }
         .button-group button {
-            flex: 1;
-            margin-top: 0; /* Reset margin for buttons in group */
-            margin-bottom: 0; /* Reset margin for buttons in group */
+            flex: 1; /* Make buttons in a group share space equally */
+            margin-top: 0; 
+            margin-bottom: 0;
+        }
+        #zoomControls {
+            margin-top: 5px;
+            margin-bottom: 10px;
+        }
+        #zoomControls label {
+            font-size: 0.9em;
+            margin-right: 5px;
+        }
+        #zoomSlider {
+            width: calc(100% - 70px); /* Adjust width based on label */
+            vertical-align: middle;
         }
     </style>
 </head>
@@ -207,7 +221,6 @@
                 <option value="en">English</option>
                 <option value="ja">日本語</option>
                 <option value="ko">한국어</option>
-                <!-- Add more languages if needed -->
             </select>
         </div>
         <button id="saveSettings" data-i18n="saveSettingsButton">儲存設定並開始</button>
@@ -217,7 +230,15 @@
         <h1 data-i18n="appTitle">圖像辨識</h1>
         <div id="cameraView">
             <video id="videoPreview" autoplay playsinline></video>
-            <button id="captureButton" data-i18n="captureButton">拍攝</button>
+            <div id="zoomControls" class="hidden">
+                <label for="zoomSlider" data-i18n="zoomLabel">縮放:</label>
+                <input type="range" id="zoomSlider" min="1" max="1" step="0.1" value="1">
+            </div>
+            <div class="button-group" style="margin-bottom: 10px;">
+                <button id="captureButton" data-i18n="captureButton">拍攝</button>
+                <button id="uploadButton" data-i18n="uploadButtonLabel">從檔案選擇</button>
+            </div>
+            <input type="file" id="imageUploadInput" class="hidden" accept="image/*">
             <canvas id="canvas" class="hidden"></canvas>
         </div>
         
@@ -227,7 +248,11 @@
             <p id="promptHelper" data-i18n="promptHelperText">已拍攝照片。點擊下方按鈕進行描述。</p>
             <div class="button-group">
                 <button id="describeButton" data-i18n="describeButton">這是什麼？</button>
+                <button id="menuModeButton" data-i18n="menuModeButton">翻譯菜單</button>
+            </div>
+            <div class="button-group">
                 <button id="recaptureButton" class="secondary" data-i18n="recaptureButton">重新拍攝</button>
+                <button id="downloadImageButton" class="secondary" data-i18n="downloadImageButtonLabel">下載圖片</button>
             </div>
         </div>
 
@@ -241,7 +266,6 @@
         <button id="backToSettings" class="secondary" data-i18n="backToSettingsButton" style="margin-top: 20px;">返回設定</button>
     </div>
 
-    <!-- Include Marked.js for Markdown rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <script>
@@ -251,27 +275,36 @@
         const targetLanguageSelect = document.getElementById('targetLanguage');
         const saveSettingsButton = document.getElementById('saveSettings');
         
+        const cameraViewDiv = document.getElementById('cameraView'); // For easier show/hide
         const videoPreview = document.getElementById('videoPreview');
         const canvas = document.getElementById('canvas');
         const captureButton = document.getElementById('captureButton');
+        const uploadButton = document.getElementById('uploadButton');
+        const imageUploadInput = document.getElementById('imageUploadInput');
+        const zoomControls = document.getElementById('zoomControls');
+        const zoomSlider = document.getElementById('zoomSlider');
+
         const capturedImage = document.getElementById('capturedImage');
-        const describeButton = document.getElementById('describeButton');
-        const recaptureButton = document.getElementById('recaptureButton');
         const controlsAfterCapture = document.getElementById('controlsAfterCapture');
+        const describeButton = document.getElementById('describeButton');
+        const menuModeButton = document.getElementById('menuModeButton');
+        const recaptureButton = document.getElementById('recaptureButton');
+        const downloadImageButton = document.getElementById('downloadImageButton');
         
         const loadingIndicator = document.getElementById('loadingIndicator');
         const resultArea = document.getElementById('resultArea');
         const backToSettingsButton = document.getElementById('backToSettings');
         const promptHelper = document.getElementById('promptHelper');
 
-        // New elements for "Tell me more"
         const tellMeMoreButton = document.getElementById('tellMeMoreButton');
         const moreInfoLoadingIndicator = document.getElementById('moreInfoLoadingIndicator');
         const moreInfoArea = document.getElementById('moreInfoArea');
 
         let stream;
+        let videoTrack; // For camera controls
         let currentApiKey = '';
         let currentTargetLanguage = 'zh-TW';
+        let currentRequestMode = 'describe'; // 'describe' or 'menu'
 
         const i18n = {
             'zh-TW': {
@@ -280,19 +313,23 @@
                 saveSettingsButton: '儲存設定並開始',
                 appTitle: '這是啥？AI幫你看',
                 captureButton: '拍攝',
+                uploadButtonLabel: '從檔案選擇',
+                zoomLabel: '縮放:',
                 describeButton: '這是什麼？',
+                menuModeButton: '翻譯菜單',
                 recaptureButton: '重新拍攝',
+                downloadImageButtonLabel: '下載圖片',
                 resultPlaceholder: 'AI 的分析結果會顯示在這裡喔！',
                 backToSettingsButton: '返回設定',
                 alert_apiKeyRequired: '請先輸入你的 API 金鑰啦！',
                 alert_cameraError: '哎呀，相機打不開捏: ',
                 alert_apiError: 'API 請求失敗，再試一次看看？ ',
-                alert_noImage: '要先拍張照片才能分析啦！',
-                promptHelperText: '照片拍好囉！按「這是什麼？」讓 AI 幫你看。',
-                apiPrompt: `這張照片裡是什麼東西？請你嚴格依照以下「回覆樣板」的格式，並使用輕鬆、口語化的台灣用語（繁體中文）來回答。請根據圖片內容填寫 [方括號] 中的資訊。如果某項資訊在圖片中無法辨識，請在對應的 [方括號] 中填寫「看不太清楚耶」或「圖片裡沒有顯示喔」。如果沒有特別的品牌或型號資訊，該部分也填寫「看不太清楚耶」。
+                alert_noImage: '要先拍張照片或上傳圖片才能分析啦！',
+                promptHelperText: '照片已準備好！點擊下方按鈕讓 AI 幫你看。',
+                apiPrompt: `這張照片裡是什麼東西？請你嚴格依照以下「回覆樣板」的格式，並使用輕鬆、口語化的台灣用語（繁體中文，即 ${currentTargetLanguage}）來回答。請根據圖片內容填寫 [方括號] 中的資訊。如果某項資訊在圖片中無法辨識，請在對應的 [方括號] 中填寫「看不太清楚耶」或「圖片裡沒有顯示喔」。如果沒有特別的品牌或型號資訊，該部分也填寫「看不太清楚耶」。
 
 **如果圖片主要內容是菜單或價目表：**
-請讓「品名」為「菜單」或「價目表」，「用途」為「提供餐點資訊與價格」，「價格」為「包含多項品項價格」。並且在「其他觀察到的資訊」中特別提醒：「這似乎是一份菜單喔！點擊『告訴我更多』可以查看詳細翻譯與價格對照。」
+請讓「品名」為「菜單」或「價目表」，「用途」為「提供餐點資訊與價格」，「價格」為「包含多項品項價格」。並且在「其他觀察到的資訊」中特別提醒：「這似乎是一份菜單喔！點擊『翻譯菜單』按鈕可以查看詳細翻譯與價格，或點『告訴我更多』以獲取菜單項目解說。」
 
 回覆樣板：
 這叫做「[物品的台灣口語化通稱或品名]」。
@@ -303,19 +340,30 @@
 請確保回答自然流暢，謝謝！`,
                 apiResponsePrefix: 'AI 說：\n',
                 tellMeMoreButtonLabel: '告訴我更多關於它',
-                apiPromptMoreInfo: `請詳細分析這張圖片的內容。
+                apiPromptMoreInfo: `請針對這張圖片中的主要物品，提供比之前初步描述更詳細的補充資訊。內容可以包含（但不限於）：使用教學、料理建議（如果適用）、保養存放（如果適用）、哪裡買/取得、相關提醒。請用輕鬆口語、條理分明的台灣用語（繁體中文，即 ${currentTargetLanguage}）來介紹，讓內容更豐富實用。請使用 Markdown 格式（例如標題、列表、粗體）來讓內容更易讀，但不要使用太複雜的 Markdown 符號。`,
+                apiPromptMenuInitial: `這是一張菜單或價目表的圖片。請你擔任專業的菜單翻譯員。嚴格依照以下「回覆樣板」的格式，將圖片中所有清晰可見的品項，逐一列出其「原文」、對應到「目標語言（${currentTargetLanguage}）的道地口語化翻譯」、以及圖片中顯示的「價格」。
+- 如果某品項的原文、翻譯或價格在圖片中不清晰，請在對應欄位註明「原文不清」、「翻譯困難」或「價格未顯示」。
+- 請確保翻譯符合目標語言的餐飲習慣用語。
+- 僅列出品項、翻譯和價格，不要有其他額外描述。
+- 如果圖片內容看起來並非菜單，請直接回覆「這似乎不是一份菜單，無法進行菜單翻譯。」
 
-**如果這是一份菜單或價目表：**
-請將其中所有清晰可見的品項，逐一列出原文、其在台灣口語化繁體中文的翻譯、以及對應的價格。請使用 Markdown 列表格式，確保清晰易讀。
-**格式範例：**
-- 原文: Fried Rice, 翻譯: 炒飯, 價格: NT$80
-- 原文: Pork Noodles, 翻譯: 豬肉麵, 價格: NT$95
-若價格不明顯，可寫「價格不明」。若某品項的原文或翻譯不明顯，也請誠實說明。
+回覆樣板 (使用 Markdown 列表)：
+- 原文: [品項原文1], 翻譯: [品項翻譯1], 價格: [價格1]
+- 原文: [品項原文2], 翻譯: [品項翻譯2], 價格: [價格2]
+...`,
+                apiPromptMenuMoreInfo: `接續先前的菜單翻譯結果，現在請你針對這張菜單圖片中的每一個品項，如果可能的話，提供簡短的「品項解說」。
+- 解說內容可以包含：主要食材、風味特色、份量大小的猜測、或是任何你認為對點餐有幫助的補充資訊。
+- 語言請使用目標語言（${currentTargetLanguage}）的道地口語。
+- 格式請依然先列出「原文」、「翻譯」、「價格」，然後在其下方加上「解說」。
 
-**如果這不是菜單，而是其他一般物品：**
-請針對圖片中的主要物品，提供比之前初步描述更詳細的補充資訊。內容可以包含（但不限於）：使用教學、料理建議（如果適用）、保養存放（如果適用）、哪裡買/取得、相關提醒。
+回覆樣板 (使用 Markdown)：
+- 原文: [品項原文1], 翻譯: [品項翻譯1], 價格: [價格1]
+  解說: [對品項1的解說...]
+- 原文: [品項原文2], 翻譯: [品項翻譯2], 價格: [價格2]
+  解說: [對品項2的解說...]
+...
 
-無論哪種情況，請用輕鬆口語、條理分明的台灣中文來介紹，讓內容更豐富實用。請使用 Markdown 格式（例如標題、列表、粗體）來讓內容更易讀，但不要使用太複雜的 Markdown 符號。`,
+如果圖片內容看起來並非菜單，或先前的翻譯結果顯示非菜單，請直接回覆「無法提供更多關於非菜單內容的解說。」`,
                 moreInfoPlaceholder: '更多詳細資訊會顯示在這裡～',
                 moreInfoPrefix: 'AI 補充說明：\n'
             },
@@ -325,19 +373,23 @@
                 saveSettingsButton: 'Save Settings & Start',
                 appTitle: "What's This? AI Vision",
                 captureButton: 'Capture',
+                uploadButtonLabel: 'Upload Image',
+                zoomLabel: 'Zoom:',
                 describeButton: "What's this?",
+                menuModeButton: 'Translate Menu',
                 recaptureButton: 'Recapture',
+                downloadImageButtonLabel: 'Download Image',
                 resultPlaceholder: 'AI analysis will appear here!',
                 backToSettingsButton: 'Back to Settings',
                 alert_apiKeyRequired: 'Please enter your API Key.',
                 alert_cameraError: 'Could not start camera: ',
                 alert_apiError: 'API request failed. Try again? ',
-                alert_noImage: 'Please capture an image first!',
-                promptHelperText: 'Photo captured! Click "What\'s this?" for AI to analyze.',
-                apiPrompt: `What is in this picture? Please strictly follow the "Response Template" format below and use simple, clear English. Fill in the information in [square brackets] based on the image content. If some information cannot be identified from the image, please write "Not clear" or "Not shown in image" in the corresponding [bracket]. If no specific brand or model information is available, also write "Not clear".
+                alert_noImage: 'Please capture or upload an image first!',
+                promptHelperText: 'Image ready! Click a button below for AI to analyze.',
+                apiPrompt: `What is in this picture? Please strictly follow the "Response Template" format below and use simple, clear English (i.e., ${currentTargetLanguage}). Fill in the information in [square brackets] based on the image content. If some information cannot be identified from the image, please write "Not clear" or "Not shown in image" in the corresponding [bracket]. If no specific brand or model information is available, also write "Not clear".
 
 **If the main content of the image is a menu or price list:**
-Please set the "Name" to "Menu" or "Price List", "Purpose" to "Provides meal information and prices", and "Price" to "Contains prices for multiple items". Also, in "Other observed information", specifically prompt the user: "This seems to be a menu! Click 'Tell me more' to see detailed translations and prices."
+Please set the "Name" to "Menu" or "Price List", "Purpose" to "Provides meal information and prices", and "Price" to "Contains prices for multiple items". Also, in "Other observed information", specifically prompt the user: "This seems to be a menu! Click 'Translate Menu' for detailed translation and prices, or 'Tell me more' for item explanations."
 
 Response Template:
 This is called "[common name or product name]".
@@ -348,41 +400,57 @@ If there are clear brand names, model numbers, or other important text in the im
 Please ensure the answer is natural and fluent. Thanks!`,
                 apiResponsePrefix: 'AI says:\n',
                 tellMeMoreButtonLabel: 'Tell me more about it',
-                apiPromptMoreInfo: `Please analyze the content of this image in detail.
+                apiPromptMoreInfo: `Please provide more detailed supplementary information about the main item in this picture than the initial description. Content can include (but is not limited to): usage instructions, cooking suggestions (if applicable), maintenance/storage (if applicable), where to buy/get it, relevant reminders. Please use clear, well-organized English (i.e., ${currentTargetLanguage}) to introduce, making the content richer and more practical. Use Markdown format (e.g., headings, lists, bold) for readability, but avoid overly complex Markdown.`,
+                apiPromptMenuInitial: `This is an image of a menu or price list. Act as a professional menu translator. Strictly follow the "Response Template" format below. For each clearly visible item in the image, list its "Original Text", its idiomatic translation into the "Target Language (${currentTargetLanguage})", and the "Price" shown in the image.
+- If the original text, translation, or price of an item is unclear in the image, note "Original unclear", "Translation difficult", or "Price not shown" in the respective field.
+- Ensure translations align with the target language's culinary terminology.
+- Only list items, translations, and prices, with no additional descriptions.
+- If the image content does not appear to be a menu, please respond directly with "This does not seem to be a menu; menu translation cannot be performed."
 
-**If this is a menu or price list:**
-Please list all clearly visible items, including their original text, their translation into simple, clear English, and their corresponding prices. Please use Markdown list format to ensure clarity and readability.
-**Format example:**
-- Original: Fried Rice, Translation: Fried Rice, Price: $80
-- Original: Pork Noodles, Translation: Pork Noodles, Price: $95
-If the price is unclear, write "Price unclear". If an item's original text or translation is unclear, please state it honestly.
+Response Template (using Markdown list):
+- Original: [Original Item 1], Translation: [Translated Item 1], Price: [Price 1]
+- Original: [Original Item 2], Translation: [Translated Item 2], Price: [Price 2]
+...`,
+                apiPromptMenuMoreInfo: `Following up on the previous menu translation, now for each item in this menu image, please provide a brief "Item Explanation" if possible.
+- The explanation can include: main ingredients, flavor profile, portion size guess, or any supplementary information you deem helpful for ordering.
+- Please use idiomatic language of the target language (${currentTargetLanguage}).
+- For the format, still list "Original", "Translation", "Price", and then add "Explanation" below it.
 
-**If this is not a menu, but another general item:**
-Please provide more detailed supplementary information about the main item in the picture than the initial description. Content can include (but is not limited to): usage instructions, cooking suggestions (if applicable), maintenance/storage (if applicable), where to buy/get it, relevant reminders.
+Response Template (using Markdown):
+- Original: [Original Item 1], Translation: [Translated Item 1], Price: [Price 1]
+  Explanation: [Explanation for Item 1...]
+- Original: [Original Item 2], Translation: [Translated Item 2], Price: [Price 2]
+  Explanation: [Explanation for Item 2...]
+...
 
-In either case, please use clear, well-organized English to introduce, making the content richer and more practical. Please use Markdown format (e.g., headings, lists, bold text) to make the content more readable, but avoid overly complex Markdown symbols.`,
+If the image content does not appear to be a menu, or the previous translation indicated it's not a menu, please respond directly with "Cannot provide more details for non-menu content."`,
                 moreInfoPlaceholder: 'More detailed information will appear here!',
                 moreInfoPrefix: 'AI adds:\n'
             },
+            // ... (ja and ko translations would follow a similar pattern, including new keys)
             'ja': {
                 apiKeyLabel: 'APIキー:',
                 languageLabel: 'ターゲット言語:',
                 saveSettingsButton: '設定を保存して開始',
                 appTitle: 'これは何？AI画像認識',
                 captureButton: '撮影',
+                uploadButtonLabel: '画像をアップロード',
+                zoomLabel: 'ズーム:',
                 describeButton: 'これは何？',
+                menuModeButton: 'メニュー翻訳',
                 recaptureButton: '再撮影',
+                downloadImageButtonLabel: '画像をダウンロード',
                 resultPlaceholder: 'AIの解析結果はここに表示されます！',
                 backToSettingsButton: '設定に戻る',
                 alert_apiKeyRequired: 'APIキーを入力してください。',
                 alert_cameraError: 'カメラを起動できませんでした: ',
                 alert_apiError: 'APIリクエストに失敗しました。もう一度試しますか？',
-                alert_noImage: 'まず画像を撮影してください！',
-                promptHelperText: '写真が撮影されました。「これは何？」をクリックしてAIに解析させてください。',
-                apiPrompt: `この写真には何が写っていますか？以下の「回答テンプレート」の形式に厳密に従い、わかりやすく口語的な日本語で回答してください。画像の内容に基づいて[角括弧]内の情報を記入してください。画像から情報が特定できない場合は、対応する[角括弧]に「不明瞭です」または「画像に表示されていません」と記入してください。特定のブランドやモデル情報がない場合も「不明瞭です」と記入してください。
+                alert_noImage: 'まず画像を撮影またはアップロードしてください！',
+                promptHelperText: '画像準備完了！下のボタンをクリックしてAIに解析させてください。',
+                apiPrompt: `この写真には何が写っていますか？以下の「回答テンプレート」の形式に厳密に従い、わかりやすく口語的な日本語（${currentTargetLanguage}）で回答してください。画像の内容に基づいて[角括弧]内の情報を記入してください。画像から情報が特定できない場合は、対応する[角括弧]に「不明瞭です」または「画像に表示されていません」と記入してください。特定のブランドやモデル情報がない場合も「不明瞭です」と記入してください。
 
 **画像が主にメニューまたは価格表である場合：**
-「品名」を「メニュー」または「価格表」、「用途」を「食事情報と価格の提供」、「価格」を「複数の品目の価格を含む」としてください。さらに、「その他観察された情報」で「これはメニューのようです！「もっと詳しく教えて」をクリックすると、詳細な翻訳と価格対照を確認できます。」とユーザーに明確に促してください。
+「品名」を「メニュー」または「価格表」、「用途」を「食事情報と価格の提供」、「価格」を「複数の品目の価格を含む」としてください。さらに、「その他観察された情報」で「これはメニューのようです！「メニュー翻訳」ボタンで詳細な翻訳と価格を確認するか、「もっと詳しく教えて」で項目解説を確認できます。」とユーザーに明確に促してください。
 
 回答テンプレート：
 これは「[物品の一般的な呼称または品名]」と呼ばれます。
@@ -393,19 +461,30 @@ In either case, please use clear, well-organized English to introduce, making th
 回答は自然で流暢になるようお願いします。ありがとうございます！`,
                 apiResponsePrefix: 'AIの解析：\n',
                 tellMeMoreButtonLabel: 'もっと詳しく教えて',
-                apiPromptMoreInfo: `この画像のコンテンツを詳細に分析してください。
+                apiPromptMoreInfo: `この画像の主要なアイテムについて、最初の説明よりも詳細な補足情報を提供してください。内容は以下を含むことができます（ただしこれらに限定されません）：使用方法、料理の提案（該当する場合）、メンテナンス/保管（該当する場合）、購入/入手場所、関連する注意点。わかりやすく整理された日本語（${currentTargetLanguage}）で紹介し、内容をより豊かで実用的なものにしてください。Markdown形式（例：見出し、リスト、太字）を使用して読みやすくしてください。ただし、複雑すぎるMarkdown記号は避けてください。`,
+                apiPromptMenuInitial: `これはメニューまたは価格表の画像です。プロのメニュー翻訳者として行動してください。以下の「回答テンプレート」の形式に厳密に従ってください。画像内の明確に見える各項目について、「原文」、「ターゲット言語（${currentTargetLanguage}）への自然な翻訳」、および画像に表示されている「価格」をリストアップしてください。
+- 項目の原文、翻訳、または価格が画像で不明確な場合は、それぞれのフィールドに「原文不明瞭」、「翻訳困難」、または「価格未表示」と記載してください。
+- 翻訳がターゲット言語の料理用語に合致するようにしてください。
+- 品目、翻訳、価格のみをリストアップし、追加の説明は不要です。
+- 画像の内容がメニューに見えない場合は、「これはメニューではないようです。メニュー翻訳は実行できません。」と直接返信してください。
 
-**これがメニューまたは価格表である場合：**
-画像に表示されているすべての項目について、原文、わかりやすい日本語での翻訳、および対応する価格を、Markdownのリスト形式で明確かつ読みやすくリストアップしてください。
-**フォーマット例：**
-- 原文: Fried Rice, 翻訳: チャーハン, 価格: 80円
-- 原文: Pork Noodles, 翻訳: 豚肉麺, 価格: 95円
-価格が不明な場合は「価格不明」と記述してください。品目の原文や翻訳が不明確な場合も正直に説明してください。
+回答テンプレート（Markdownリスト使用）：
+- 原文: [原文1], 翻訳: [翻訳1], 価格: [価格1]
+- 原文: [原文2], 翻訳: [翻訳2], 価格: [価格2]
+...`,
+                apiPromptMenuMoreInfo: `前回のメニュー翻訳に続いて、このメニュー画像の各項目について、可能であれば簡単な「項目解説」を提供してください。
+- 解説には、主な材料、風味の特徴、量の推測、その他注文に役立つと思われる補足情報を含めることができます。
+- ターゲット言語（${currentTargetLanguage}）の自然な言葉遣いを使用してください。
+- 形式としては、「原文」、「翻訳」、「価格」をリストアップし、その下に「解説」を追加してください。
 
-**これがメニューではなく、他の一般的なアイテムである場合：**
-画像内の主要なアイテムについて、最初の説明よりも詳細な補足情報を提供してください。内容は以下を含むことができます（ただしこれらに限定されません）：使用方法、料理の提案（該当する場合）、メンテナンス/保管（該当する場合）、購入/入手場所、関連する注意点。
+回答テンプレート（Markdown使用）：
+- 原文: [原文1], 翻訳: [翻訳1], 価格: [価格1]
+  解説: [項目1の解説...]
+- 原文: [原文2], 翻訳: [翻訳2], 価格: [価格2]
+  解説: [項目2の解説...]
+...
 
-どちらの場合も、内容をより豊かで実用的なものにするため、わかりやすく整理された日本語で紹介してください。内容を読みやすくするためにMarkdown形式（例：見出し、リスト、太字）を使用してください。ただし、複雑すぎるMarkdown記号は避けてください。`,
+画像の内容がメニューに見えない場合、または前回の翻訳でメニューではないと示された場合は、「メニュー以外の内容に関する詳細は提供できません。」と直接返信してください。`,
                 moreInfoPlaceholder: 'さらに詳しい情報はこちらに表示されます！',
                 moreInfoPrefix: 'AIの補足説明：\n'
             },
@@ -415,19 +494,23 @@ In either case, please use clear, well-organized English to introduce, making th
                 saveSettingsButton: '설정 저장 및 시작',
                 appTitle: '이게 뭐지? AI 이미지 분석',
                 captureButton: '촬영',
+                uploadButtonLabel: '이미지 업로드',
+                zoomLabel: '줌:',
                 describeButton: '이게 뭐예요?',
+                menuModeButton: '메뉴 번역',
                 recaptureButton: '다시 촬영',
+                downloadImageButtonLabel: '이미지 다운로드',
                 resultPlaceholder: 'AI 분석 결과가 여기에 표시됩니다!',
                 backToSettingsButton: '설정으로 돌아가기',
                 alert_apiKeyRequired: 'API 키를 입력해주세요.',
                 alert_cameraError: '카메라를 시작할 수 없습니다: ',
                 alert_apiError: 'API 요청에 실패했습니다. 다시 시도하시겠습니까? ',
-                alert_noImage: '먼저 이미지를 촬영해주세요!',
-                promptHelperText: '사진이 촬영되었습니다! AI 분석을 위해 "이게 뭐예요?"를 클릭하세요.',
-                apiPrompt: `이 사진에 무엇이 있습니까? 아래 "응답 템플릿" 형식을 엄격히 따르고 간단하고 명확한 한국어로 답변하십시오. 이미지 내용을 기반으로 [대괄호] 안의 정보를 입력하십시오. 이미지에서 일부 정보를 식별할 수 없는 경우 해당 [대괄호]에 "명확하지 않음" 또는 "이미지에 표시되지 않음"이라고 작성하십시오. 특정 브랜드나 모델 정보가 없는 경우에도 "명확하지 않음"이라고 작성하십시오.
+                alert_noImage: '먼저 이미지를 촬영하거나 업로드해주세요!',
+                promptHelperText: '이미지 준비 완료! AI 분석을 위해 아래 버튼을 클릭하세요.',
+                apiPrompt: `이 사진에 무엇이 있습니까? 아래 "응답 템플릿" 형식을 엄격히 따르고 간단하고 명확한 한국어(${currentTargetLanguage})로 답변하십시오. 이미지 내용을 기반으로 [대괄호] 안의 정보를 입력하십시오. 이미지에서 일부 정보를 식별할 수 없는 경우 해당 [대괄호]에 "명확하지 않음" 또는 "이미지에 표시되지 않음"이라고 작성하십시오. 특정 브랜드나 모델 정보가 없는 경우에도 "명확하지 않음"이라고 작성하십시오.
 
 **이미지의 주요 내용이 메뉴 또는 가격표인 경우:**
-"품명"을 "메뉴" 또는 "가격표"로, "용도"를 "식사 정보 및 가격 제공"으로, "가격"을 "여러 항목의 가격 포함"으로 설정하십시오. 또한, "기타 관찰된 정보"에 "이것은 메뉴인 것 같습니다! '자세히 알려줘'를 클릭하면 자세한 번역 및 가격 대조를 볼 수 있습니다."라고 사용자에게 명확하게 안내하십시오.
+"품명"을 "메뉴" 또는 "가격표"로, "용도"를 "식사 정보 및 가격 제공"으로, "가격"을 "여러 항목의 가격 포함"으로 설정하십시오. 또한, "기타 관찰된 정보"에 "이것은 메뉴인 것 같습니다! 자세한 번역 및 가격은 '메뉴 번역' 버튼을, 항목 설명은 '자세히 알려줘'를 클릭하십시오."라고 사용자에게 명확하게 안내하십시오.
 
 응답 템플릿:
 이것은 "[일반적인 이름 또는 제품 이름]"이라고 합니다.
@@ -438,23 +521,42 @@ In either case, please use clear, well-organized English to introduce, making th
 답변이 자연스럽고 유창하도록 해주십시오. 감사합니다!`,
                 apiResponsePrefix: 'AI 설명：\n',
                 tellMeMoreButtonLabel: '자세히 알려줘',
-                apiPromptMoreInfo: `이 이미지의 내용을 자세히 분석하십시오.
+                apiPromptMoreInfo: `사진 속 주요 품목에 대해 이전의 초기 설명보다 더 자세한 보충 정보를 제공하십시오. 내용은 다음을 포함할 수 있지만 이에 국한되지는 않습니다: 사용 지침, 요리 제안 (해당하는 경우), 유지 관리/보관 (해당하는 경우), 구입처/입수처, 관련 주의사항. 내용을 더 풍부하고 실용적으로 만들기 위해 간결하고 체계적인 한국어(${currentTargetLanguage})로 소개하십시오. 내용을 더 쉽게 읽을 수 있도록 Markdown 형식(예: 제목, 목록, 굵은 텍스트)을 사용하십시오. 그러나 너무 복잡한 Markdown 기호는 피하십시오.`,
+                apiPromptMenuInitial: `이것은 메뉴 또는 가격표 이미지입니다. 전문 메뉴 번역가 역할을 해주십시오. 아래 "응답 템플릿" 형식을 엄격히 따르십시오. 이미지에서 명확하게 보이는 모든 항목의 "원문", "대상 언어(${currentTargetLanguage})로의 자연스러운 번역", 그리고 이미지에 표시된 "가격"을 나열하십시오.
+- 항목의 원문, 번역 또는 가격이 이미지에서 불분명한 경우, 해당 필드에 "원문 불분명", "번역 어려움" 또는 "가격 표시 없음"으로 기재하십시오.
+- 번역이 대상 언어의 요리 용어와 일치하도록 하십시오.
+- 항목, 번역, 가격만 나열하고 추가 설명은 하지 마십시오.
+- 이미지 내용이 메뉴로 보이지 않으면 "이것은 메뉴가 아닌 것 같습니다. 메뉴 번역을 수행할 수 없습니다."라고 직접 응답하십시오.
 
-**이것이 메뉴 또는 가격표인 경우:**
-이미지에서 명확하게 보이는 모든 항목의 원문, 한국어로의 간결한 번역, 그리고 해당 가격을 목록 형식으로 명확하고 읽기 쉽게 나열하십시오.
-**형식 예시:**
-- 원문: Fried Rice, 번역: 볶음밥, 가격: 80원
-- 원문: Pork Noodles, 번역: 돼지고기 국수, 가격: 95원
-가격이 불분명한 경우 "가격 불분명"이라고 작성하십시오. 항목의 원문이나 번역이 불분명한 경우에도 솔직하게 설명하십시오.
+응답 템플릿 (Markdown 목록 사용):
+- 원문: [원문 항목 1], 번역: [번역된 항목 1], 가격: [가격 1]
+- 원문: [원문 항목 2], 번역: [번역된 항목 2], 가격: [가격 2]
+...`,
+                apiPromptMenuMoreInfo: `이전 메뉴 번역에 이어, 이 메뉴 이미지의 각 항목에 대해 가능하다면 간단한 "항목 설명"을 제공하십시오.
+- 설명에는 주요 재료, 풍미 특징, 양 추측 또는 주문에 도움이 될 만한 보충 정보가 포함될 수 있습니다.
+- 대상 언어(${currentTargetLanguage})의 자연스러운 표현을 사용하십시오.
+- 형식은 "원문", "번역", "가격"을 나열한 다음 그 아래에 "설명"을 추가하십시오.
 
-**이것이 메뉴가 아닌 다른 일반적인 품목인 경우:**
-사진 속 주요 품목에 대해 이전의 초기 설명보다 더 자세한 보충 정보를 제공하십시오. 내용은 다음을 포함할 수 있지만 이에 국한되지는 않습니다: 사용 지침, 요리 제안 (해당하는 경우), 유지 관리/보관 (해당하는 경우), 구입처/입수처, 관련 주의사항.
+응답 템플릿 (Markdown 사용):
+- 원문: [원문 항목 1], 번역: [번역된 항목 1], 가격: [가격 1]
+  설명: [항목 1에 대한 설명...]
+- 원문: [원문 항목 2], 번역: [번역된 항목 2], 가격: [가격 2]
+  설명: [항목 2에 대한 설명...]
+...
 
-어떤 경우든, 내용을 더 풍부하고 실용적으로 만들기 위해 간결하고 체계적인 한국어로 소개하십시오. 내용을 더 쉽게 읽을 수 있도록 Markdown 형식(예: 제목, 목록, 굵은 텍스트)을 사용하십시오. 그러나 너무 복잡한 Markdown 기호는 피하십시오.`,
+이미지 내용이 메뉴로 보이지 않거나 이전 번역에서 메뉴가 아니라고 표시된 경우, "메뉴가 아닌 내용에 대한 자세한 정보를 제공할 수 없습니다."라고 직접 응답하십시오.`,
                 moreInfoPlaceholder: '더 자세한 정보가 여기에 표시됩니다!',
                 moreInfoPrefix: 'AI 추가 설명：\n'
             }
         };
+        
+        function getProcessedPrompt(promptKey) {
+            let promptText = i18n[currentTargetLanguage][promptKey];
+            if (promptText && typeof promptText === 'string') {
+                promptText = promptText.replace(/\$\{currentTargetLanguage\}/g, currentTargetLanguage);
+            }
+            return promptText;
+        }
 
         function updateUIStrings(lang) {
             document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -469,12 +571,10 @@ In either case, please use clear, well-organized English to introduce, making th
                     if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
                         el.placeholder = i18n[lang][key];
                     } else {
-                        // Only update if it's the default placeholder or empty
-                        const currentContent = el.textContent.trim();
-                        // Check if current content matches any language's placeholder value (or is empty)
+                        const currentContent = el.innerHTML.trim(); // Use innerHTML for comparison if it might contain HTML
                         const placeholderValues = Object.values(i18n).map(translations => translations[key]).filter(Boolean);
-                        if (el.textContent.trim() === '' || placeholderValues.some(pVal => currentContent.includes(pVal.substring(0, Math.min(currentContent.length, pVal.length))))) { // Match partial string for robustness
-                           el.textContent = i18n[lang][key];
+                        if (el.innerHTML.trim() === '' || placeholderValues.some(pVal => currentContent.includes(pVal.substring(0, Math.min(currentContent.length, pVal.length))))) {
+                           el.innerHTML = i18n[lang][key]; // Use innerHTML for placeholder to allow basic formatting if needed
                         }
                     }
                 }
@@ -484,18 +584,21 @@ In either case, please use clear, well-organized English to introduce, making th
             if (!controlsAfterCapture.classList.contains('hidden')) {
                 promptHelper.textContent = i18n[currentTargetLanguage].promptHelperText;
             }
+            // Ensure all titles and buttons are updated
             const mainTitle = document.querySelector('h1[data-i18n="appTitle"]');
-            if (mainTitle && i18n[lang] && i18n[lang].appTitle) {
-                mainTitle.textContent = i18n[lang].appTitle;
-            }
-            const describeBtn = document.getElementById('describeButton');
-            if (describeBtn && i18n[lang] && i18n[lang].describeButton) {
-                describeBtn.textContent = i18n[lang].describeButton;
-            }
-            // Update "Tell me more" button text
-            if (tellMeMoreButton && i18n[lang] && i18n[lang].tellMeMoreButtonLabel) {
-                tellMeMoreButton.textContent = i18n[lang].tellMeMoreButtonLabel;
-            }
+             if (mainTitle && i18n[lang] && i18n[lang].appTitle) mainTitle.textContent = i18n[lang].appTitle;
+            [describeButton, menuModeButton, recaptureButton, downloadImageButton, tellMeMoreButton, captureButton, uploadButton, saveSettingsButton, backToSettingsButton].forEach(btn => {
+                if (btn) {
+                    const i18nKey = btn.dataset.i18n;
+                    if (i18nKey && i18n[lang] && i18n[lang][i18nKey]) {
+                        btn.textContent = i18n[lang][i18nKey];
+                    }
+                }
+            });
+             const zoomLabelEl = document.querySelector('label[for="zoomSlider"]');
+             if (zoomLabelEl && i18n[lang] && i18n[lang].zoomLabel) {
+                 zoomLabelEl.textContent = i18n[lang].zoomLabel;
+             }
         }
         
         function loadSettings() {
@@ -508,32 +611,69 @@ In either case, please use clear, well-organized English to introduce, making th
             }
             if (savedLanguage) {
                 targetLanguageSelect.value = savedLanguage;
-                currentTargetLanguage = savedLanguage;
             } else {
                 targetLanguageSelect.value = 'zh-TW'; 
-                currentTargetLanguage = 'zh-TW';
             }
-            updateUIStrings(currentTargetLanguage);
+            updateUIStrings(targetLanguageSelect.value); // Update based on selection
+        }
+
+        function stopCameraStream() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+                videoTrack = null;
+            }
+            zoomControls.classList.add('hidden');
         }
 
         async function startCamera() {
+            stopCameraStream(); // Stop any existing stream first
             try {
-                if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
-                }
                 stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
                 videoPreview.srcObject = stream;
                 videoPreview.classList.remove('hidden');
+                cameraViewDiv.classList.remove('hidden'); // Show camera view container
+                
                 captureButton.classList.remove('hidden');
+                uploadButton.classList.remove('hidden');
+
                 capturedImage.classList.add('hidden');
                 controlsAfterCapture.classList.add('hidden');
-                resultArea.textContent = i18n[currentTargetLanguage].resultPlaceholder; // Use textContent for placeholder
+                resultArea.innerHTML = i18n[currentTargetLanguage].resultPlaceholder;
                 tellMeMoreButton.classList.add('hidden');
                 moreInfoArea.classList.add('hidden');
-                moreInfoArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder; // Use textContent for placeholder
+                moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder;
+
+                videoTrack = stream.getVideoTracks()[0];
+                const capabilities = videoTrack.getCapabilities();
+
+                // Zoom controls
+                if (capabilities.zoom) {
+                    zoomSlider.min = capabilities.zoom.min;
+                    zoomSlider.max = capabilities.zoom.max;
+                    zoomSlider.step = capabilities.zoom.step;
+                    // Ensure value is within new min/max if camera changes
+                    let currentZoom = videoTrack.getSettings().zoom || parseFloat(zoomSlider.value);
+                    if (currentZoom < capabilities.zoom.min) currentZoom = capabilities.zoom.min;
+                    if (currentZoom > capabilities.zoom.max) currentZoom = capabilities.zoom.max;
+                    zoomSlider.value = currentZoom;
+                    zoomControls.classList.remove('hidden');
+                } else {
+                    zoomControls.classList.add('hidden');
+                }
+
+                // Focus mode - attempt continuous focus
+                if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+                    videoTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] })
+                        .then(() => console.log("Continuous focus enabled."))
+                        .catch(e => console.warn("Could not enable continuous focus:", e));
+                }
+
             } catch (err) {
                 console.error("Error accessing camera: ", err);
-                resultArea.textContent = i18n[currentTargetLanguage].alert_cameraError + err.message;
+                resultArea.innerHTML = i18n[currentTargetLanguage].alert_cameraError + err.message;
+                cameraViewDiv.classList.add('hidden'); // Hide camera view if error
+                zoomControls.classList.add('hidden');
             }
         }
 
@@ -546,9 +686,8 @@ In either case, please use clear, well-organized English to introduce, making th
             currentApiKey = apiKey;
             localStorage.setItem('apiKey', apiKey);
             
-            currentTargetLanguage = targetLanguageSelect.value;
-            localStorage.setItem('targetLanguage', currentTargetLanguage);
-            updateUIStrings(currentTargetLanguage); 
+            // Language is already updated by 'change' event, just save it
+            localStorage.setItem('targetLanguage', targetLanguageSelect.value);
 
             settingsView.classList.add('hidden');
             appView.classList.remove('hidden');
@@ -559,54 +698,119 @@ In either case, please use clear, well-organized English to introduce, making th
             updateUIStrings(event.target.value);
         });
 
+        // Camera Zoom Handler
+        zoomSlider.addEventListener('input', () => {
+            if (videoTrack && videoTrack.applyConstraints) {
+                videoTrack.applyConstraints({ advanced: [{ zoom: parseFloat(zoomSlider.value) }] })
+                    .catch(e => console.error("Zoom error:", e));
+            }
+        });
+
+        // Camera Tap-to-Focus Handler
+        videoPreview.addEventListener('click', () => {
+            if (videoTrack && videoTrack.applyConstraints && videoTrack.getCapabilities().focusMode) {
+                const focusModes = videoTrack.getCapabilities().focusMode;
+                if (focusModes.includes('single-shot')) {
+                    videoTrack.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] })
+                        .then(() => console.log("Single-shot focus triggered."))
+                        .catch(e => console.warn("Single-shot focus error:", e));
+                } else if (focusModes.includes('continuous')) { // Fallback or re-trigger
+                     videoTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] })
+                        .catch(e => console.warn("Re-applying continuous focus error:", e));
+                }
+            }
+        });
+        
+        function showImageAndControls(imageDataUrl) {
+            capturedImage.src = imageDataUrl;
+            capturedImage.classList.remove('hidden');
+            
+            videoPreview.classList.add('hidden');
+            zoomControls.classList.add('hidden');
+            // captureButton.classList.add('hidden'); // Keep these visible in case user wants to use them before recapture
+            // uploadButton.classList.add('hidden');
+            cameraViewDiv.classList.add('hidden'); // Hide the whole camera view section
+
+            controlsAfterCapture.classList.remove('hidden');
+            promptHelper.textContent = i18n[currentTargetLanguage].promptHelperText;
+            resultArea.innerHTML = i18n[currentTargetLanguage].resultPlaceholder;
+            tellMeMoreButton.classList.add('hidden');
+            moreInfoArea.classList.add('hidden');
+            moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder;
+
+            stopCameraStream();
+        }
+
         captureButton.addEventListener('click', () => {
+            if (!stream || !videoPreview.videoWidth) {
+                alert(i18n[currentTargetLanguage].alert_cameraError + "Camera not ready.");
+                return;
+            }
             canvas.width = videoPreview.videoWidth;
             canvas.height = videoPreview.videoHeight;
             const context = canvas.getContext('2d');
             context.drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
             
             const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
-            capturedImage.src = imageDataUrl;
-            capturedImage.classList.remove('hidden');
-            
-            videoPreview.classList.add('hidden');
-            captureButton.classList.add('hidden');
-            controlsAfterCapture.classList.remove('hidden');
-            promptHelper.textContent = i18n[currentTargetLanguage].promptHelperText;
-            resultArea.textContent = i18n[currentTargetLanguage].resultPlaceholder; // Reset result area using textContent
-            tellMeMoreButton.classList.add('hidden'); // Hide tell me more button
-            moreInfoArea.classList.add('hidden'); // Hide more info area
-            moreInfoArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder; // Reset more info area using textContent
+            showImageAndControls(imageDataUrl);
+        });
 
+        uploadButton.addEventListener('click', () => {
+            imageUploadInput.click();
+        });
 
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
+        imageUploadInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    showImageAndControls(e.target.result);
+                }
+                reader.readAsDataURL(file);
             }
+            imageUploadInput.value = null; // Reset for next upload
         });
 
         recaptureButton.addEventListener('click', () => {
             startCamera(); 
-            resultArea.textContent = i18n[currentTargetLanguage].resultPlaceholder;
+            // Hide captured image and its controls
+            capturedImage.classList.add('hidden');
+            controlsAfterCapture.classList.add('hidden');
+            resultArea.innerHTML = i18n[currentTargetLanguage].resultPlaceholder;
             tellMeMoreButton.classList.add('hidden');
             moreInfoArea.classList.add('hidden');
-            moreInfoArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder;
+            moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder;
+        });
+
+        downloadImageButton.addEventListener('click', () => {
+            if (capturedImage.src && !capturedImage.classList.contains('hidden') && capturedImage.src !== "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=") {
+                const link = document.createElement('a');
+                link.href = capturedImage.src;
+                const timestamp = new Date().toISOString().replace(/[:.-]/g, '');
+                link.download = `ai_image_${timestamp}.jpeg`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                alert(i18n[currentTargetLanguage].alert_noImage);
+            }
         });
 
         async function callGeminiAPI(promptText, base64ImageData, resultDisplayElement, loadingElement, responsePrefix, placeholderText) {
             if (!base64ImageData) { 
                 alert(i18n[currentTargetLanguage].alert_noImage);
-                return;
+                return false; // Indicate failure
             }
             if (!currentApiKey) {
                 alert(i18n[currentTargetLanguage].alert_apiKeyRequired);
-                return;
+                return false; // Indicate failure
             }
 
             loadingElement.classList.remove('hidden');
-            resultDisplayElement.innerHTML = ''; // Use innerHTML
+            resultDisplayElement.innerHTML = ''; 
             resultDisplayElement.classList.remove('hidden');
 
-
+            // Use the model name specified by the user
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${currentApiKey}`;
             
             const requestBody = {
@@ -623,16 +827,14 @@ In either case, please use clear, well-organized English to introduce, making th
                 }],
                  generationConfig: {
                    temperature: 0.3, 
-                   maxOutputTokens: 4096, // <-- Already 4096 from previous step
+                   maxOutputTokens: 4096,
                  }
             };
-
+            let success = false;
             try {
                 const response = await fetch(API_URL, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestBody)
                 });
 
@@ -646,47 +848,71 @@ In either case, please use clear, well-organized English to introduce, making th
                 
                 if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
                     const description = data.candidates[0].content.parts[0].text;
-                    // Use marked.parse to convert Markdown to HTML
                     resultDisplayElement.innerHTML = responsePrefix + marked.parse(description);
-                    if (resultDisplayElement === resultArea) { // Only show "Tell me more" after initial description
-                        tellMeMoreButton.classList.remove('hidden');
+                    success = true;
+                     // Show "Tell me more" only after initial describe or menu translation, and if not an explicit "not a menu" type response
+                    if (resultDisplayElement === resultArea) {
+                        const isNotMenuResponse = description.includes("不是一份菜單") || description.includes("not a menu");
+                        if (!isNotMenuResponse) {
+                             tellMeMoreButton.classList.remove('hidden');
+                        } else {
+                             tellMeMoreButton.classList.add('hidden'); // Explicitly hide if AI says not a menu
+                        }
                     }
+
                 } else if (data.promptFeedback && data.promptFeedback.blockReason) {
                     let blockMessage = `${i18n[currentTargetLanguage].alert_apiError} Blocked by API. Reason: ${data.promptFeedback.blockReason}`;
                      if (data.promptFeedback.safetyRatings) {
                         blockMessage += `\nDetails: ${data.promptFeedback.safetyRatings.map(r => `${r.category} was ${r.probability}`).join(', ')}`;
                     }
-                    resultDisplayElement.textContent = blockMessage; // Use textContent for error messages
+                    resultDisplayElement.innerHTML = marked.parse(blockMessage); // Parse for potential markdown in error message
                     if (resultDisplayElement === resultArea) tellMeMoreButton.classList.add('hidden');
                 }
                 else {
                     console.warn("Unexpected API response structure:", data);
-                    resultDisplayElement.textContent = i18n[currentTargetLanguage].alert_apiError + 'Could not parse description from API response. Check console for details.'; // Use textContent for error messages
+                    resultDisplayElement.innerHTML = marked.parse(i18n[currentTargetLanguage].alert_apiError + 'Could not parse description. Check console.');
                     if (resultDisplayElement === resultArea) tellMeMoreButton.classList.add('hidden');
                 }
 
             } catch (error) {
                 console.error("Error calling Gemini API:", error);
-                resultDisplayElement.textContent = i18n[currentTargetLanguage].alert_apiError + error.message; // Use textContent for error messages
+                resultDisplayElement.innerHTML = marked.parse(i18n[currentTargetLanguage].alert_apiError + error.message);
                 if (resultDisplayElement === resultArea) tellMeMoreButton.classList.add('hidden');
             } finally {
                 loadingElement.classList.add('hidden');
-                // If content is empty after processing, set placeholder text
-                if (resultDisplayElement.innerHTML.trim() === '' || resultDisplayElement.textContent.trim() === '') {
-                     resultDisplayElement.textContent = placeholderText; // Ensure placeholder is plain text
+                if (resultDisplayElement.innerHTML.trim() === '') {
+                     resultDisplayElement.innerHTML = placeholderText;
                 }
             }
+            return success;
         }
 
-
         describeButton.addEventListener('click', async () => {
+            currentRequestMode = 'describe';
             const base64ImageData = capturedImage.src.split(',')[1];
-            tellMeMoreButton.classList.add('hidden'); // Hide before new request
-            moreInfoArea.classList.add('hidden');     // Hide more info area
-            moreInfoArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder; // Reset more info area with plain text
+            tellMeMoreButton.classList.add('hidden'); 
+            moreInfoArea.classList.add('hidden');
+            moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder;
             
             await callGeminiAPI(
-                i18n[currentTargetLanguage].apiPrompt,
+                getProcessedPrompt('apiPrompt'),
+                base64ImageData,
+                resultArea,
+                loadingIndicator,
+                i18n[currentTargetLanguage].apiResponsePrefix,
+                i18n[currentTargetLanguage].resultPlaceholder
+            );
+        });
+
+        menuModeButton.addEventListener('click', async () => {
+            currentRequestMode = 'menu';
+            const base64ImageData = capturedImage.src.split(',')[1];
+            tellMeMoreButton.classList.add('hidden');
+            moreInfoArea.classList.add('hidden');
+            moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder;
+
+            await callGeminiAPI(
+                getProcessedPrompt('apiPromptMenuInitial'),
                 base64ImageData,
                 resultArea,
                 loadingIndicator,
@@ -697,41 +923,44 @@ In either case, please use clear, well-organized English to introduce, making th
 
         tellMeMoreButton.addEventListener('click', async () => {
             const base64ImageData = capturedImage.src.split(',')[1];
-            moreInfoArea.classList.remove('hidden'); // Ensure more info area is visible for loading indicator
-            moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder; // Reset with plain text placeholder
+            moreInfoArea.classList.remove('hidden'); 
+            moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder;
 
+            let moreInfoPromptKey = currentRequestMode === 'menu' ? 'apiPromptMenuMoreInfo' : 'apiPromptMoreInfo';
+            
             await callGeminiAPI(
-                i18n[currentTargetLanguage].apiPromptMoreInfo,
+                getProcessedPrompt(moreInfoPromptKey),
                 base64ImageData,
                 moreInfoArea,
-                moreInfoLoadingIndicator, // Use dedicated loader for this
+                moreInfoLoadingIndicator, 
                 i18n[currentTargetLanguage].moreInfoPrefix,
                 i18n[currentTargetLanguage].moreInfoPlaceholder
             );
         });
 
-
         backToSettingsButton.addEventListener('click', () => {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-            }
+            stopCameraStream();
             appView.classList.add('hidden');
             settingsView.classList.remove('hidden');
+            
             capturedImage.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="; 
             capturedImage.classList.add('hidden');
-            resultArea.textContent = i18n[currentTargetLanguage].resultPlaceholder; 
+            controlsAfterCapture.classList.add('hidden');
+            resultArea.innerHTML = i18n[currentTargetLanguage].resultPlaceholder; 
             tellMeMoreButton.classList.add('hidden');
             moreInfoArea.classList.add('hidden');
-            moreInfoArea.textContent = i18n[currentTargetLanguage].moreInfoPlaceholder;
-            controlsAfterCapture.classList.add('hidden');
+            moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder;
+            
+            cameraViewDiv.classList.remove('hidden'); // Prepare for camera
             videoPreview.classList.remove('hidden'); 
             captureButton.classList.remove('hidden'); 
+            uploadButton.classList.remove('hidden');
+            zoomControls.classList.add('hidden'); // Ensure zoom is hidden initially
         });
 
         // Initial load
         loadSettings();
-        // Always show settings first unless API key is already set and you want to auto-skip settings with a saved key
-        if (currentApiKey && false) { // Set to true if you want to auto-skip settings with a saved key
+        if (currentApiKey && false) { // Set to true to auto-skip settings if API key exists (not recommended for first use)
              settingsView.classList.add('hidden');
              appView.classList.remove('hidden');
              startCamera();
@@ -739,7 +968,6 @@ In either case, please use clear, well-organized English to introduce, making th
             settingsView.classList.remove('hidden');
             appView.classList.add('hidden');
         }
-
     </script>
 </body>
 </html>
