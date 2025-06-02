@@ -99,13 +99,13 @@
             margin-bottom: 10px; /* Adjusted margin */
             cursor: pointer; /* For tap-to-focus hint */
         }
-        #capturedImage {
+        #capturedImage { /* This ID is now for the preview image */
             max-width: 100%;
             height: auto;
             border: 1px solid #ccc;
             border-radius: var(--border-radius);
-            margin-top: 15px;
-            display: none;
+            margin-bottom: 15px; /* Spacing below preview image */
+            display: none; /* Initially hidden */
         }
         .info-display-area {
             margin-top: 20px;
@@ -116,6 +116,7 @@
             word-wrap: break-word;
             font-size: 0.95em;
             white-space: pre-wrap; /* To preserve newlines from AI before markdown */
+            position: relative; /* For positioning the copy button */
         }
         .info-display-area h1, 
         .info-display-area h2, 
@@ -206,6 +207,26 @@
             width: calc(100% - 70px); /* Adjust width based on label */
             vertical-align: middle;
         }
+        .copy-button { /* Style for the new copy button */
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            padding: 5px 8px;
+            font-size: 0.8em;
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            z-index: 10;
+            opacity: 0.7;
+            transition: opacity 0.2s, background-color 0.2s;
+            width: auto; /* Override general button width */
+        }
+        .copy-button:hover {
+            opacity: 1;
+            background-color: #545b62; /* Darken on hover */
+        }
     </style>
 </head>
 <body>
@@ -243,9 +264,12 @@
             <canvas id="canvas" class="hidden"></canvas>
         </div>
         
-        <img id="capturedImage" alt="Captured Image">
+        <!-- capturedImage is now inside controlsAfterCapture -->
         
         <div id="controlsAfterCapture" class="hidden">
+            <!-- Image preview will be here -->
+            <img id="capturedImage" alt="Captured Image"> <!-- Style is in CSS, display:none initially -->
+            
             <p id="promptHelper" data-i18n="promptHelperText">已拍攝照片。點擊下方按鈕進行描述。</p>
             <div class="button-group">
                 <button id="describeButton" data-i18n="describeButton">這是什麼？</button>
@@ -258,11 +282,15 @@
         </div>
 
         <div id="loadingIndicator" class="loader hidden"></div>
-        <div id="resultArea" class="info-display-area" data-i18n-placeholder="resultPlaceholder">辨識結果將顯示於此</div>
+        <div id="resultArea" class="info-display-area" data-i18n-placeholder="resultPlaceholder">辨識結果將顯示於此
+            <button class="copy-button" data-clipboard-target-id="resultArea" title="複製內容" style="display:none;">複製</button>
+        </div>
         
         <button id="tellMeMoreButton" class="secondary hidden" data-i18n="tellMeMoreButtonLabel" style="margin-top: 15px;">告訴我更多</button>
         <div id="moreInfoLoadingIndicator" class="loader hidden"></div>
-        <div id="moreInfoArea" class="info-display-area hidden" data-i18n-placeholder="moreInfoPlaceholder" style="margin-top:10px;">更多資訊將顯示於此</div>
+        <div id="moreInfoArea" class="info-display-area hidden" data-i18n-placeholder="moreInfoPlaceholder" style="margin-top:10px;">更多資訊將顯示於此
+            <button class="copy-button" data-clipboard-target-id="moreInfoArea" title="複製內容" style="display:none;">複製</button>
+        </div>
 
         <button id="backToSettings" class="secondary" data-i18n="backToSettingsButton" style="margin-top: 20px;">返回設定</button>
     </div>
@@ -285,7 +313,7 @@
         const zoomControls = document.getElementById('zoomControls');
         const zoomSlider = document.getElementById('zoomSlider');
 
-        const capturedImage = document.getElementById('capturedImage');
+        const capturedImage = document.getElementById('capturedImage'); // This is now the preview image
         const controlsAfterCapture = document.getElementById('controlsAfterCapture');
         const describeButton = document.getElementById('describeButton');
         const menuModeButton = document.getElementById('menuModeButton');
@@ -366,7 +394,11 @@
 
 如果圖片內容看起來並非菜單，或先前的翻譯結果顯示非菜單，請直接回覆「無法提供更多關於非菜單內容的解說。」`,
                 moreInfoPlaceholder: '更多詳細資訊會顯示在這裡～',
-                moreInfoPrefix: 'AI 補充說明：\n'
+                moreInfoPrefix: 'AI 補充說明：\n',
+                copyButtonText: '複製', // New i18n string for copy button
+                copiedButtonText: '已複製!', // New i18n string for copied state
+                copyFailedAlert: '複製失敗!', // New i18n string
+                noContentCopyAlert: '沒有內容可以複製。' // New i18n string
             },
             'en': {
                 apiKeyLabel: 'API Key:',
@@ -426,7 +458,11 @@ Response Template (using Markdown):
 
 If the image content does not appear to be a menu, or the previous translation indicated it's not a menu, please respond directly with "Cannot provide more details for non-menu content."`,
                 moreInfoPlaceholder: 'More detailed information will appear here!',
-                moreInfoPrefix: 'AI adds:\n'
+                moreInfoPrefix: 'AI adds:\n',
+                copyButtonText: 'Copy',
+                copiedButtonText: 'Copied!',
+                copyFailedAlert: 'Copy failed!',
+                noContentCopyAlert: 'No content to copy.'
             },
             'ja': {
                 apiKeyLabel: 'APIキー:',
@@ -445,7 +481,7 @@ If the image content does not appear to be a menu, or the previous translation i
                 alert_apiKeyRequired: 'APIキーを入力してください。',
                 alert_cameraError: 'カメラを起動できませんでした: ',
                 alert_apiError: 'APIリクエストに失敗しました。もう一度試しますか？',
-                alert_noImage: 'まず画像を撮影またはアップロードしてください！',
+                alert_noImage: 'まず画像を撮影またはアップ로드してください！',
                 promptHelperText: '画像準備完了！下のボタンをクリックしてAIに解析させてください。',
                 apiPrompt: `この写真には何が写っていますか？以下の「回答テンプレート」の形式に厳密に従い、わかりやすく口語的な日本語（${currentTargetLanguage}）で回答してください。画像の内容に基づいて[角括弧]内の情報を記入してください。画像から情報が特定できない場合は、対応する[角括弧]に「不明瞭です」または「画像に表示されていません」と記入してください。特定のブランドやモデル情報がない場合も「不明瞭です」と記入してください。
 
@@ -486,7 +522,11 @@ If the image content does not appear to be a menu, or the previous translation i
 
 画像の内容がメニューに見えない場合、または前回の翻訳でメニューではないと示された場合は、「メニュー以外の内容に関する詳細は提供できません。」と直接返信してください。`,
                 moreInfoPlaceholder: 'さらに詳しい情報はこちらに表示されます！',
-                moreInfoPrefix: 'AIの補足説明：\n'
+                moreInfoPrefix: 'AIの補足説明：\n',
+                copyButtonText: 'コピー',
+                copiedButtonText: 'コピー完了!',
+                copyFailedAlert: 'コピー失敗!',
+                noContentCopyAlert: 'コピーする内容がありません。'
             },
             'ko': {
                 apiKeyLabel: 'API 키:',
@@ -546,7 +586,11 @@ If the image content does not appear to be a menu, or the previous translation i
 
 이미지 내용이 메뉴로 보이지 않거나 이전 번역에서 메뉴가 아니라고 표시된 경우, "메뉴가 아닌 내용에 대한 자세한 정보를 제공할 수 없습니다."라고 직접 응답하십시오.`,
                 moreInfoPlaceholder: '더 자세한 정보가 여기에 표시됩니다!',
-                moreInfoPrefix: 'AI 추가 설명：\n'
+                moreInfoPrefix: 'AI 추가 설명：\n',
+                copyButtonText: '복사',
+                copiedButtonText: '복사됨!',
+                copyFailedAlert: '복사 실패!',
+                noContentCopyAlert: '복사할 내용이 없습니다.'
             }
         };
         
@@ -557,6 +601,35 @@ If the image content does not appear to be a menu, or the previous translation i
             }
             return promptText;
         }
+
+        function updateCopyButtonVisibility(textAreaElement, placeholderTextKey) {
+            const copyButton = textAreaElement.querySelector('.copy-button');
+            if (!copyButton) return;
+
+            // Set default text for copy button from i18n
+            copyButton.textContent = i18n[currentTargetLanguage].copyButtonText || '複製';
+
+
+            const placeholder = i18n[currentTargetLanguage][placeholderTextKey];
+            const currentPrefix = textAreaElement.id === 'resultArea' ? i18n[currentTargetLanguage].apiResponsePrefix : (textAreaElement.id === 'moreInfoArea' ? i18n[currentTargetLanguage].moreInfoPrefix : "");
+
+            const clone = textAreaElement.cloneNode(true);
+            const buttonInClone = clone.querySelector('.copy-button');
+            if (buttonInClone) buttonInClone.remove();
+
+            const htmlContent = clone.innerHTML.trim();
+            const textContent = clone.innerText.trim();
+
+            const justPrefix = currentPrefix && htmlContent === currentPrefix.trim().replace(/\n/g, '<br>').replace(/\n/g, ''); // Compare with potential HTML representation of prefix
+            const isPlaceholder = htmlContent === placeholder.trim();
+            
+            if (textContent && !isPlaceholder && !justPrefix && textContent !== currentPrefix.trim()) {
+                copyButton.style.display = 'inline-block';
+            } else {
+                copyButton.style.display = 'none';
+            }
+        }
+
 
         function updateUIStrings(lang) {
             document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -571,10 +644,39 @@ If the image content does not appear to be a menu, or the previous translation i
                     if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
                         el.placeholder = i18n[lang][key];
                     } else {
-                        const currentContent = el.innerHTML.trim(); 
+                        // To avoid replacing actual content with placeholder after language change
+                        const currentContentClone = el.cloneNode(true);
+                        const copyBtnInClone = currentContentClone.querySelector('.copy-button');
+                        if (copyBtnInClone) copyBtnInClone.remove();
+                        const currentActualContent = currentContentClone.innerHTML.trim();
+
                         const placeholderValues = Object.values(i18n).map(translations => translations[key]).filter(Boolean);
-                        if (el.innerHTML.trim() === '' || placeholderValues.some(pVal => currentContent.includes(pVal.substring(0, Math.min(currentContent.length, pVal.length))))) {
+                        let isCurrentlyPlaceholder = false;
+                        for(const pVal of placeholderValues) {
+                            if (currentActualContent === pVal || currentActualContent === "") {
+                                isCurrentlyPlaceholder = true;
+                                break;
+                            }
+                        }
+                         // Also check if it's just the prefix
+                        const currentPrefix = el.id === 'resultArea' ? i18n[lang].apiResponsePrefix : (el.id === 'moreInfoArea' ? i18n[lang].moreInfoPrefix : "");
+                        if (currentActualContent === currentPrefix.trim().replace(/\n/g, '<br>').replace(/\n/g, '')) {
+                            isCurrentlyPlaceholder = true; // Treat as empty if only prefix
+                        }
+
+
+                        if (isCurrentlyPlaceholder) {
                            el.innerHTML = i18n[lang][key]; 
+                           // Re-add copy button if it was removed by innerHTML assignment
+                           if (!el.querySelector('.copy-button') && (el.id === 'resultArea' || el.id === 'moreInfoArea')) {
+                               const newCopyButton = document.createElement('button');
+                               newCopyButton.className = 'copy-button';
+                               newCopyButton.setAttribute('data-clipboard-target-id', el.id);
+                               newCopyButton.title = i18n[lang].copyButtonText || '複製內容';
+                               newCopyButton.style.display = 'none';
+                               newCopyButton.textContent = i18n[lang].copyButtonText || '複製';
+                               el.appendChild(newCopyButton);
+                           }
                         }
                     }
                 }
@@ -598,6 +700,13 @@ If the image content does not appear to be a menu, or the previous translation i
              if (zoomLabelEl && i18n[lang] && i18n[lang].zoomLabel) {
                  zoomLabelEl.textContent = i18n[lang].zoomLabel;
              }
+             // Update copy button visibility and text after language change
+            if (document.getElementById('resultArea')) {
+                updateCopyButtonVisibility(document.getElementById('resultArea'), 'resultPlaceholder');
+            }
+            if (document.getElementById('moreInfoArea')) {
+                updateCopyButtonVisibility(document.getElementById('moreInfoArea'), 'moreInfoPlaceholder');
+            }
         }
         
         function loadSettings() {
@@ -636,12 +745,16 @@ If the image content does not appear to be a menu, or the previous translation i
                 captureButton.classList.remove('hidden');
                 uploadButton.classList.remove('hidden');
 
-                capturedImage.classList.add('hidden');
+                capturedImage.style.display = 'none'; // Ensure preview is hidden
                 controlsAfterCapture.classList.add('hidden');
-                resultArea.innerHTML = i18n[currentTargetLanguage].resultPlaceholder;
+                
+                resultArea.innerHTML = i18n[currentTargetLanguage].resultPlaceholder + `<button class="copy-button" data-clipboard-target-id="resultArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
+                updateCopyButtonVisibility(resultArea, 'resultPlaceholder');
                 tellMeMoreButton.classList.add('hidden');
                 moreInfoArea.classList.add('hidden');
-                moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder;
+                moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder + `<button class="copy-button" data-clipboard-target-id="moreInfoArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
+                updateCopyButtonVisibility(moreInfoArea, 'moreInfoPlaceholder');
+
 
                 videoTrack = stream.getVideoTracks()[0];
                 const capabilities = videoTrack.getCapabilities();
@@ -667,7 +780,8 @@ If the image content does not appear to be a menu, or the previous translation i
 
             } catch (err) {
                 console.error("Error accessing camera: ", err);
-                resultArea.innerHTML = i18n[currentTargetLanguage].alert_cameraError + err.message;
+                resultArea.innerHTML = i18n[currentTargetLanguage].alert_cameraError + err.message + `<button class="copy-button" data-clipboard-target-id="resultArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
+                updateCopyButtonVisibility(resultArea, 'resultPlaceholder');
                 cameraViewDiv.classList.add('hidden'); 
                 zoomControls.classList.add('hidden');
             }
@@ -715,18 +829,21 @@ If the image content does not appear to be a menu, or the previous translation i
         
         function showImageAndControls(imageDataUrl) {
             capturedImage.src = imageDataUrl;
-            capturedImage.classList.remove('hidden');
+            capturedImage.style.display = 'block'; // Show the preview image
             
             videoPreview.classList.add('hidden');
             zoomControls.classList.add('hidden');
             cameraViewDiv.classList.add('hidden'); 
 
-            controlsAfterCapture.classList.remove('hidden');
+            controlsAfterCapture.classList.remove('hidden'); // This div now contains the image and buttons
             promptHelper.textContent = i18n[currentTargetLanguage].promptHelperText;
-            resultArea.innerHTML = i18n[currentTargetLanguage].resultPlaceholder;
+            
+            resultArea.innerHTML = i18n[currentTargetLanguage].resultPlaceholder + `<button class="copy-button" data-clipboard-target-id="resultArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
+            updateCopyButtonVisibility(resultArea, 'resultPlaceholder');
             tellMeMoreButton.classList.add('hidden');
             moreInfoArea.classList.add('hidden');
-            moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder;
+            moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder + `<button class="copy-button" data-clipboard-target-id="moreInfoArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
+            updateCopyButtonVisibility(moreInfoArea, 'moreInfoPlaceholder');
 
             stopCameraStream();
         }
@@ -763,16 +880,19 @@ If the image content does not appear to be a menu, or the previous translation i
 
         recaptureButton.addEventListener('click', () => {
             startCamera(); 
-            capturedImage.classList.add('hidden');
+            capturedImage.style.display = 'none'; // Hide preview image
             controlsAfterCapture.classList.add('hidden');
-            resultArea.innerHTML = i18n[currentTargetLanguage].resultPlaceholder;
+            
+            resultArea.innerHTML = i18n[currentTargetLanguage].resultPlaceholder + `<button class="copy-button" data-clipboard-target-id="resultArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
+            updateCopyButtonVisibility(resultArea, 'resultPlaceholder');
             tellMeMoreButton.classList.add('hidden');
             moreInfoArea.classList.add('hidden');
-            moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder;
+            moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder + `<button class="copy-button" data-clipboard-target-id="moreInfoArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
+            updateCopyButtonVisibility(moreInfoArea, 'moreInfoPlaceholder');
         });
 
         downloadImageButton.addEventListener('click', () => {
-            if (capturedImage.src && !capturedImage.classList.contains('hidden') && capturedImage.src !== "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=") {
+            if (capturedImage.src && capturedImage.style.display !== 'none' && capturedImage.src !== "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=") {
                 const link = document.createElement('a');
                 link.href = capturedImage.src;
                 const timestamp = new Date().toISOString().replace(/[:.-]/g, '');
@@ -785,7 +905,7 @@ If the image content does not appear to be a menu, or the previous translation i
             }
         });
 
-        async function callGeminiAPI(promptText, base64ImageData, resultDisplayElement, loadingElement, responsePrefix, placeholderText) {
+        async function callGeminiAPI(promptText, base64ImageData, resultDisplayElement, loadingElement, responsePrefixKey, placeholderTextKey) {
             if (!base64ImageData) {
                 alert(i18n[currentTargetLanguage].alert_noImage);
                 return; 
@@ -795,15 +915,18 @@ If the image content does not appear to be a menu, or the previous translation i
                 return; 
             }
 
+            const responsePrefix = i18n[currentTargetLanguage][responsePrefixKey];
+            const placeholderText = i18n[currentTargetLanguage][placeholderTextKey];
+
             loadingElement.classList.remove('hidden');
-            resultDisplayElement.innerHTML = responsePrefix; // Initialize with prefix, clear previous
+            resultDisplayElement.innerHTML = responsePrefix + `<button class="copy-button" data-clipboard-target-id="${resultDisplayElement.id}" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
+            updateCopyButtonVisibility(resultDisplayElement, placeholderTextKey);
             resultDisplayElement.classList.remove('hidden');
-            if (resultDisplayElement === resultArea) { // Ensure tellMeMore is hidden before new request
+            
+            if (resultDisplayElement === resultArea) { 
                  tellMeMoreButton.classList.add('hidden');
             }
 
-
-            // Use the model name specified by the user, change to streaming endpoint
             const STREAM_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:streamGenerateContent?key=${currentApiKey}&alt=sse`;
             
             const requestBody = {
@@ -825,7 +948,7 @@ If the image content does not appear to be a menu, or the previous translation i
             };
 
             let accumulatedText = "";
-            let successStreaming = false; // To track if we received any valid text data
+            let successStreaming = false; 
 
             try {
                 const response = await fetch(STREAM_API_URL, {
@@ -835,7 +958,6 @@ If the image content does not appear to be a menu, or the previous translation i
                 });
 
                 if (!response.ok) {
-                    // Handle non-OK initial response (e.g., auth error, invalid model)
                     let errorJsonMessage = "";
                     try {
                         const errorData = await response.json();
@@ -857,7 +979,6 @@ If the image content does not appear to be a menu, or the previous translation i
                 while (true) {
                     const { value, done } = await reader.read();
                     if (done) {
-                        // Process any remaining data in lineBuffer if it's a valid start of an SSE data line
                         if (lineBuffer.trim().startsWith('data:')) {
                              try {
                                 const jsonString = lineBuffer.substring(lineBuffer.indexOf('{'));
@@ -865,7 +986,8 @@ If the image content does not appear to be a menu, or the previous translation i
                                 if (jsonData.candidates && jsonData.candidates[0].content && jsonData.candidates[0].content.parts && jsonData.candidates[0].content.parts[0].text) {
                                     const textChunk = jsonData.candidates[0].content.parts[0].text;
                                     accumulatedText += textChunk;
-                                    resultDisplayElement.innerHTML = responsePrefix + marked.parse(accumulatedText);
+                                    resultDisplayElement.innerHTML = responsePrefix + marked.parse(accumulatedText) + `<button class="copy-button" data-clipboard-target-id="${resultDisplayElement.id}" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
+                                    updateCopyButtonVisibility(resultDisplayElement, placeholderTextKey);
                                     successStreaming = true;
                                 }
                             } catch (e) {
@@ -883,25 +1005,24 @@ If the image content does not appear to be a menu, or the previous translation i
 
                         if (line.startsWith('data:')) {
                             try {
-                                const jsonString = line.substring(line.indexOf('{')); // Get content after "data: "
+                                const jsonString = line.substring(line.indexOf('{')); 
                                 const jsonData = JSON.parse(jsonString);
                                 
                                 if (jsonData.candidates && jsonData.candidates[0].content && jsonData.candidates[0].content.parts && jsonData.candidates[0].content.parts[0].text) {
                                     const textChunk = jsonData.candidates[0].content.parts[0].text;
                                     accumulatedText += textChunk;
-                                    resultDisplayElement.innerHTML = responsePrefix + marked.parse(accumulatedText);
-                                    resultDisplayElement.scrollTop = resultDisplayElement.scrollHeight; // Auto-scroll
+                                    resultDisplayElement.innerHTML = responsePrefix + marked.parse(accumulatedText) + `<button class="copy-button" data-clipboard-target-id="${resultDisplayElement.id}" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
+                                    updateCopyButtonVisibility(resultDisplayElement, placeholderTextKey);
+                                    resultDisplayElement.scrollTop = resultDisplayElement.scrollHeight; 
                                     successStreaming = true;
                                 } else if (jsonData.promptFeedback && jsonData.promptFeedback.blockReason) {
                                     let blockMessage = `${i18n[currentTargetLanguage].alert_apiError} Blocked by API. Reason: ${jsonData.promptFeedback.blockReason}`;
                                     if (jsonData.promptFeedback.safetyRatings) {
                                         blockMessage += `\nDetails: ${jsonData.promptFeedback.safetyRatings.map(r => `${r.category} was ${r.probability}`).join(', ')}`;
                                     }
-                                    // Append block message to the output, it's part of the stream now
                                     accumulatedText += `\n\n**API Error:**\n${blockMessage}\n\n`;
-                                    resultDisplayElement.innerHTML = responsePrefix + marked.parse(accumulatedText);
-                                    // No need to set successStreaming to false here, as some text might have been received before block.
-                                    // The block reason will be visible in the output.
+                                    resultDisplayElement.innerHTML = responsePrefix + marked.parse(accumulatedText) + `<button class="copy-button" data-clipboard-target-id="${resultDisplayElement.id}" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
+                                    updateCopyButtonVisibility(resultDisplayElement, placeholderTextKey);
                                     if (resultDisplayElement === resultArea) tellMeMoreButton.classList.add('hidden');
                                 }
                             } catch (e) {
@@ -911,10 +1032,9 @@ If the image content does not appear to be a menu, or the previous translation i
                     }
                 }
                 
-                // After stream has finished
                 if (resultDisplayElement === resultArea && successStreaming) {
                     const isNotMenuResponse = accumulatedText.includes("不是一份菜單") || accumulatedText.includes("not a menu");
-                    const isBlockedResponse = accumulatedText.includes("Blocked by API"); // Check if a block message was part of the stream
+                    const isBlockedResponse = accumulatedText.includes("Blocked by API"); 
                     
                     if (!isNotMenuResponse && !isBlockedResponse) {
                          tellMeMoreButton.classList.remove('hidden');
@@ -925,25 +1045,24 @@ If the image content does not appear to be a menu, or the previous translation i
 
             } catch (error) {
                 console.error("Error calling Gemini API (streaming):", error);
-                // Append error to the current content or replace if nothing was streamed
                 const errorHtml = marked.parse(i18n[currentTargetLanguage].alert_apiError + error.message);
                 if (accumulatedText.trim() === "") {
-                    resultDisplayElement.innerHTML = responsePrefix + errorHtml;
+                    resultDisplayElement.innerHTML = responsePrefix + errorHtml + `<button class="copy-button" data-clipboard-target-id="${resultDisplayElement.id}" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
                 } else {
-                    resultDisplayElement.innerHTML += `<hr>${errorHtml}`; // Append error after streamed content
+                    resultDisplayElement.innerHTML += `<hr>${errorHtml}`; // Append error, copy button already there from last successful write
                 }
+                updateCopyButtonVisibility(resultDisplayElement, placeholderTextKey);
 
                 if (resultDisplayElement === resultArea) tellMeMoreButton.classList.add('hidden');
-                successStreaming = false; // Ensure success is false on error
+                successStreaming = false; 
             } finally {
                 loadingElement.classList.add('hidden');
-                // If nothing was successfully streamed and the display area only contains the prefix (or is empty)
-                if (!successStreaming && (resultDisplayElement.innerHTML.trim() === responsePrefix.trim() || resultDisplayElement.innerHTML.trim() === '')) {
-                     resultDisplayElement.innerHTML = placeholderText;
+                if (!successStreaming && (resultDisplayElement.innerText.trim() === responsePrefix.trim() || resultDisplayElement.innerText.trim() === '')) {
+                     resultDisplayElement.innerHTML = placeholderText + `<button class="copy-button" data-clipboard-target-id="${resultDisplayElement.id}" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
                 } else if (successStreaming && accumulatedText.trim() === '') {
-                    // Stream was successful (connected, finished) but sent no actual text content
-                    resultDisplayElement.innerHTML = responsePrefix + i18n[currentTargetLanguage].alert_apiError + "AI did not provide any text output.";
+                    resultDisplayElement.innerHTML = responsePrefix + i18n[currentTargetLanguage].alert_apiError + "AI did not provide any text output." + `<button class="copy-button" data-clipboard-target-id="${resultDisplayElement.id}" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
                 }
+                updateCopyButtonVisibility(resultDisplayElement, placeholderTextKey);
             }
         }
 
@@ -953,15 +1072,16 @@ If the image content does not appear to be a menu, or the previous translation i
             const base64ImageData = capturedImage.src.split(',')[1];
             tellMeMoreButton.classList.add('hidden'); 
             moreInfoArea.classList.add('hidden');
-            moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder;
+            moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder + `<button class="copy-button" data-clipboard-target-id="moreInfoArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
+            updateCopyButtonVisibility(moreInfoArea, 'moreInfoPlaceholder');
             
             await callGeminiAPI(
                 getProcessedPrompt('apiPrompt'),
                 base64ImageData,
                 resultArea,
                 loadingIndicator,
-                i18n[currentTargetLanguage].apiResponsePrefix,
-                i18n[currentTargetLanguage].resultPlaceholder
+                'apiResponsePrefix',
+                'resultPlaceholder'
             );
         });
 
@@ -970,22 +1090,25 @@ If the image content does not appear to be a menu, or the previous translation i
             const base64ImageData = capturedImage.src.split(',')[1];
             tellMeMoreButton.classList.add('hidden');
             moreInfoArea.classList.add('hidden');
-            moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder;
+            moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder + `<button class="copy-button" data-clipboard-target-id="moreInfoArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
+            updateCopyButtonVisibility(moreInfoArea, 'moreInfoPlaceholder');
 
             await callGeminiAPI(
                 getProcessedPrompt('apiPromptMenuInitial'),
                 base64ImageData,
                 resultArea,
                 loadingIndicator,
-                i18n[currentTargetLanguage].apiResponsePrefix,
-                i18n[currentTargetLanguage].resultPlaceholder
+                'apiResponsePrefix',
+                'resultPlaceholder'
             );
         });
 
         tellMeMoreButton.addEventListener('click', async () => {
             const base64ImageData = capturedImage.src.split(',')[1];
             moreInfoArea.classList.remove('hidden'); 
-            moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder;
+            moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder + `<button class="copy-button" data-clipboard-target-id="moreInfoArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
+            updateCopyButtonVisibility(moreInfoArea, 'moreInfoPlaceholder');
+
 
             let moreInfoPromptKey = currentRequestMode === 'menu' ? 'apiPromptMenuMoreInfo' : 'apiPromptMoreInfo';
             
@@ -994,8 +1117,8 @@ If the image content does not appear to be a menu, or the previous translation i
                 base64ImageData,
                 moreInfoArea,
                 moreInfoLoadingIndicator, 
-                i18n[currentTargetLanguage].moreInfoPrefix,
-                i18n[currentTargetLanguage].moreInfoPlaceholder
+                'moreInfoPrefix',
+                'moreInfoPlaceholder'
             );
         });
 
@@ -1005,12 +1128,15 @@ If the image content does not appear to be a menu, or the previous translation i
             settingsView.classList.remove('hidden');
             
             capturedImage.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="; 
-            capturedImage.classList.add('hidden');
+            capturedImage.style.display = 'none'; // Hide preview
             controlsAfterCapture.classList.add('hidden');
-            resultArea.innerHTML = i18n[currentTargetLanguage].resultPlaceholder; 
+            
+            resultArea.innerHTML = i18n[currentTargetLanguage].resultPlaceholder + `<button class="copy-button" data-clipboard-target-id="resultArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
+            updateCopyButtonVisibility(resultArea, 'resultPlaceholder');
             tellMeMoreButton.classList.add('hidden');
             moreInfoArea.classList.add('hidden');
-            moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder;
+            moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder + `<button class="copy-button" data-clipboard-target-id="moreInfoArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
+            updateCopyButtonVisibility(moreInfoArea, 'moreInfoPlaceholder');
             
             cameraViewDiv.classList.remove('hidden'); 
             videoPreview.classList.remove('hidden'); 
@@ -1019,9 +1145,65 @@ If the image content does not appear to be a menu, or the previous translation i
             zoomControls.classList.add('hidden'); 
         });
 
+        function setupCopyButtons() {
+            document.querySelectorAll('.copy-button').forEach(button => {
+                // Ensure text content is set according to current language from the start
+                button.textContent = i18n[currentTargetLanguage].copyButtonText || '複製';
+                button.title = i18n[currentTargetLanguage].copyButtonText || '複製內容';
+
+
+                button.addEventListener('click', async (event) => {
+                    const targetId = button.getAttribute('data-clipboard-target-id');
+                    const targetElement = document.getElementById(targetId);
+                    if (targetElement) {
+                        const clone = targetElement.cloneNode(true);
+                        const buttonInClone = clone.querySelector('.copy-button');
+                        if (buttonInClone) {
+                            buttonInClone.remove();
+                        }
+                        let textToCopy = clone.innerText || clone.textContent; 
+
+                        const prefixes = [
+                            i18n[currentTargetLanguage].apiResponsePrefix, 
+                            i18n[currentTargetLanguage].moreInfoPrefix
+                        ];
+                        for (const prefix of prefixes) {
+                            if (textToCopy.startsWith(prefix)) {
+                                textToCopy = textToCopy.substring(prefix.length).trim();
+                                break;
+                            }
+                        }
+
+                        if (textToCopy.trim()) {
+                            try {
+                                await navigator.clipboard.writeText(textToCopy);
+                                const originalText = i18n[currentTargetLanguage].copyButtonText || '複製';
+                                button.textContent = i18n[currentTargetLanguage].copiedButtonText || '已複製!';
+                                setTimeout(() => {
+                                    button.textContent = originalText;
+                                }, 2000);
+                            } catch (err) {
+                                console.error('Failed to copy: ', err);
+                                alert(i18n[currentTargetLanguage].copyFailedAlert || '複製失敗!');
+                            }
+                        } else {
+                            alert(i18n[currentTargetLanguage].noContentCopyAlert || '沒有內容可以複製。');
+                        }
+                    }
+                });
+            });
+        }
+
+
         // Initial load
         loadSettings();
-        if (currentApiKey && false) { 
+        setupCopyButtons(); // Setup listeners for any statically added copy buttons. Dynamically added ones need listeners too.
+                           // The current implementation re-adds buttons with innerHTML, so listeners might need re-attaching or use event delegation.
+                           // For simplicity, current setupCopyButtons() will be called again if needed, or rely on it working for the initial ones.
+                           // My code now adds the button HTML string directly, so setupCopyButtons should be called once.
+                           // It's better to have static buttons in HTML and then call setup once.
+
+        if (currentApiKey && false) { // This 'false' condition was in original, kept it.
              settingsView.classList.add('hidden');
              appView.classList.remove('hidden');
              startCamera();
