@@ -115,6 +115,7 @@
             min-height: 50px;
             word-wrap: break-word;
             font-size: 0.95em;
+            white-space: pre-wrap; /* To preserve newlines from AI before markdown */
         }
         .info-display-area h1, 
         .info-display-area h2, 
@@ -427,7 +428,6 @@ If the image content does not appear to be a menu, or the previous translation i
                 moreInfoPlaceholder: 'More detailed information will appear here!',
                 moreInfoPrefix: 'AI adds:\n'
             },
-            // ... (ja and ko translations would follow a similar pattern, including new keys)
             'ja': {
                 apiKeyLabel: 'APIキー:',
                 languageLabel: 'ターゲット言語:',
@@ -571,10 +571,10 @@ If the image content does not appear to be a menu, or the previous translation i
                     if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
                         el.placeholder = i18n[lang][key];
                     } else {
-                        const currentContent = el.innerHTML.trim(); // Use innerHTML for comparison if it might contain HTML
+                        const currentContent = el.innerHTML.trim(); 
                         const placeholderValues = Object.values(i18n).map(translations => translations[key]).filter(Boolean);
                         if (el.innerHTML.trim() === '' || placeholderValues.some(pVal => currentContent.includes(pVal.substring(0, Math.min(currentContent.length, pVal.length))))) {
-                           el.innerHTML = i18n[lang][key]; // Use innerHTML for placeholder to allow basic formatting if needed
+                           el.innerHTML = i18n[lang][key]; 
                         }
                     }
                 }
@@ -584,7 +584,6 @@ If the image content does not appear to be a menu, or the previous translation i
             if (!controlsAfterCapture.classList.contains('hidden')) {
                 promptHelper.textContent = i18n[currentTargetLanguage].promptHelperText;
             }
-            // Ensure all titles and buttons are updated
             const mainTitle = document.querySelector('h1[data-i18n="appTitle"]');
              if (mainTitle && i18n[lang] && i18n[lang].appTitle) mainTitle.textContent = i18n[lang].appTitle;
             [describeButton, menuModeButton, recaptureButton, downloadImageButton, tellMeMoreButton, captureButton, uploadButton, saveSettingsButton, backToSettingsButton].forEach(btn => {
@@ -614,7 +613,7 @@ If the image content does not appear to be a menu, or the previous translation i
             } else {
                 targetLanguageSelect.value = 'zh-TW'; 
             }
-            updateUIStrings(targetLanguageSelect.value); // Update based on selection
+            updateUIStrings(targetLanguageSelect.value);
         }
 
         function stopCameraStream() {
@@ -627,12 +626,12 @@ If the image content does not appear to be a menu, or the previous translation i
         }
 
         async function startCamera() {
-            stopCameraStream(); // Stop any existing stream first
+            stopCameraStream(); 
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
                 videoPreview.srcObject = stream;
                 videoPreview.classList.remove('hidden');
-                cameraViewDiv.classList.remove('hidden'); // Show camera view container
+                cameraViewDiv.classList.remove('hidden'); 
                 
                 captureButton.classList.remove('hidden');
                 uploadButton.classList.remove('hidden');
@@ -647,12 +646,10 @@ If the image content does not appear to be a menu, or the previous translation i
                 videoTrack = stream.getVideoTracks()[0];
                 const capabilities = videoTrack.getCapabilities();
 
-                // Zoom controls
                 if (capabilities.zoom) {
                     zoomSlider.min = capabilities.zoom.min;
                     zoomSlider.max = capabilities.zoom.max;
                     zoomSlider.step = capabilities.zoom.step;
-                    // Ensure value is within new min/max if camera changes
                     let currentZoom = videoTrack.getSettings().zoom || parseFloat(zoomSlider.value);
                     if (currentZoom < capabilities.zoom.min) currentZoom = capabilities.zoom.min;
                     if (currentZoom > capabilities.zoom.max) currentZoom = capabilities.zoom.max;
@@ -662,7 +659,6 @@ If the image content does not appear to be a menu, or the previous translation i
                     zoomControls.classList.add('hidden');
                 }
 
-                // Focus mode - attempt continuous focus
                 if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
                     videoTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] })
                         .then(() => console.log("Continuous focus enabled."))
@@ -672,7 +668,7 @@ If the image content does not appear to be a menu, or the previous translation i
             } catch (err) {
                 console.error("Error accessing camera: ", err);
                 resultArea.innerHTML = i18n[currentTargetLanguage].alert_cameraError + err.message;
-                cameraViewDiv.classList.add('hidden'); // Hide camera view if error
+                cameraViewDiv.classList.add('hidden'); 
                 zoomControls.classList.add('hidden');
             }
         }
@@ -685,8 +681,6 @@ If the image content does not appear to be a menu, or the previous translation i
             }
             currentApiKey = apiKey;
             localStorage.setItem('apiKey', apiKey);
-            
-            // Language is already updated by 'change' event, just save it
             localStorage.setItem('targetLanguage', targetLanguageSelect.value);
 
             settingsView.classList.add('hidden');
@@ -698,7 +692,6 @@ If the image content does not appear to be a menu, or the previous translation i
             updateUIStrings(event.target.value);
         });
 
-        // Camera Zoom Handler
         zoomSlider.addEventListener('input', () => {
             if (videoTrack && videoTrack.applyConstraints) {
                 videoTrack.applyConstraints({ advanced: [{ zoom: parseFloat(zoomSlider.value) }] })
@@ -706,7 +699,6 @@ If the image content does not appear to be a menu, or the previous translation i
             }
         });
 
-        // Camera Tap-to-Focus Handler
         videoPreview.addEventListener('click', () => {
             if (videoTrack && videoTrack.applyConstraints && videoTrack.getCapabilities().focusMode) {
                 const focusModes = videoTrack.getCapabilities().focusMode;
@@ -714,7 +706,7 @@ If the image content does not appear to be a menu, or the previous translation i
                     videoTrack.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] })
                         .then(() => console.log("Single-shot focus triggered."))
                         .catch(e => console.warn("Single-shot focus error:", e));
-                } else if (focusModes.includes('continuous')) { // Fallback or re-trigger
+                } else if (focusModes.includes('continuous')) { 
                      videoTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] })
                         .catch(e => console.warn("Re-applying continuous focus error:", e));
                 }
@@ -727,9 +719,7 @@ If the image content does not appear to be a menu, or the previous translation i
             
             videoPreview.classList.add('hidden');
             zoomControls.classList.add('hidden');
-            // captureButton.classList.add('hidden'); // Keep these visible in case user wants to use them before recapture
-            // uploadButton.classList.add('hidden');
-            cameraViewDiv.classList.add('hidden'); // Hide the whole camera view section
+            cameraViewDiv.classList.add('hidden'); 
 
             controlsAfterCapture.classList.remove('hidden');
             promptHelper.textContent = i18n[currentTargetLanguage].promptHelperText;
@@ -768,12 +758,11 @@ If the image content does not appear to be a menu, or the previous translation i
                 }
                 reader.readAsDataURL(file);
             }
-            imageUploadInput.value = null; // Reset for next upload
+            imageUploadInput.value = null; 
         });
 
         recaptureButton.addEventListener('click', () => {
             startCamera(); 
-            // Hide captured image and its controls
             capturedImage.classList.add('hidden');
             controlsAfterCapture.classList.add('hidden');
             resultArea.innerHTML = i18n[currentTargetLanguage].resultPlaceholder;
@@ -797,21 +786,25 @@ If the image content does not appear to be a menu, or the previous translation i
         });
 
         async function callGeminiAPI(promptText, base64ImageData, resultDisplayElement, loadingElement, responsePrefix, placeholderText) {
-            if (!base64ImageData) { 
+            if (!base64ImageData) {
                 alert(i18n[currentTargetLanguage].alert_noImage);
-                return false; // Indicate failure
+                return; 
             }
             if (!currentApiKey) {
                 alert(i18n[currentTargetLanguage].alert_apiKeyRequired);
-                return false; // Indicate failure
+                return; 
             }
 
             loadingElement.classList.remove('hidden');
-            resultDisplayElement.innerHTML = ''; 
+            resultDisplayElement.innerHTML = responsePrefix; // Initialize with prefix, clear previous
             resultDisplayElement.classList.remove('hidden');
+            if (resultDisplayElement === resultArea) { // Ensure tellMeMore is hidden before new request
+                 tellMeMoreButton.classList.add('hidden');
+            }
 
-            // Use the model name specified by the user
-            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${currentApiKey}`;
+
+            // Use the model name specified by the user, change to streaming endpoint
+            const STREAM_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:streamGenerateContent?key=${currentApiKey}&alt=sse`;
             
             const requestBody = {
                 contents: [{
@@ -830,62 +823,130 @@ If the image content does not appear to be a menu, or the previous translation i
                    maxOutputTokens: 4096,
                  }
             };
-            let success = false;
+
+            let accumulatedText = "";
+            let successStreaming = false; // To track if we received any valid text data
+
             try {
-                const response = await fetch(API_URL, {
+                const response = await fetch(STREAM_API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestBody)
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    console.error('API Error Response:', errorData);
-                    throw new Error(`HTTP error! status: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+                    // Handle non-OK initial response (e.g., auth error, invalid model)
+                    let errorJsonMessage = "";
+                    try {
+                        const errorData = await response.json();
+                        errorJsonMessage = errorData.error?.message || 'Unknown API error after non-ok response';
+                    } catch (e) {
+                        errorJsonMessage = response.statusText || 'Failed to get error details';
+                    }
+                    throw new Error(`HTTP error! status: ${response.status} - ${errorJsonMessage}`);
+                }
+                
+                if (!response.body) {
+                    throw new Error("Response body is null, streaming not possible.");
                 }
 
-                const data = await response.json();
-                
-                if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
-                    const description = data.candidates[0].content.parts[0].text;
-                    resultDisplayElement.innerHTML = responsePrefix + marked.parse(description);
-                    success = true;
-                     // Show "Tell me more" only after initial describe or menu translation, and if not an explicit "not a menu" type response
-                    if (resultDisplayElement === resultArea) {
-                        const isNotMenuResponse = description.includes("不是一份菜單") || description.includes("not a menu");
-                        if (!isNotMenuResponse) {
-                             tellMeMoreButton.classList.remove('hidden');
-                        } else {
-                             tellMeMoreButton.classList.add('hidden'); // Explicitly hide if AI says not a menu
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let lineBuffer = '';
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) {
+                        // Process any remaining data in lineBuffer if it's a valid start of an SSE data line
+                        if (lineBuffer.trim().startsWith('data:')) {
+                             try {
+                                const jsonString = lineBuffer.substring(lineBuffer.indexOf('{'));
+                                const jsonData = JSON.parse(jsonString);
+                                if (jsonData.candidates && jsonData.candidates[0].content && jsonData.candidates[0].content.parts && jsonData.candidates[0].content.parts[0].text) {
+                                    const textChunk = jsonData.candidates[0].content.parts[0].text;
+                                    accumulatedText += textChunk;
+                                    resultDisplayElement.innerHTML = responsePrefix + marked.parse(accumulatedText);
+                                    successStreaming = true;
+                                }
+                            } catch (e) {
+                                console.warn("Error parsing final buffered JSON chunk:", e, lineBuffer);
+                            }
+                        }
+                        break;
+                    }
+
+                    lineBuffer += decoder.decode(value, { stream: true });
+                    let eolIndex;
+                    while ((eolIndex = lineBuffer.indexOf('\n')) >= 0) {
+                        const line = lineBuffer.substring(0, eolIndex).trim();
+                        lineBuffer = lineBuffer.substring(eolIndex + 1);
+
+                        if (line.startsWith('data:')) {
+                            try {
+                                const jsonString = line.substring(line.indexOf('{')); // Get content after "data: "
+                                const jsonData = JSON.parse(jsonString);
+                                
+                                if (jsonData.candidates && jsonData.candidates[0].content && jsonData.candidates[0].content.parts && jsonData.candidates[0].content.parts[0].text) {
+                                    const textChunk = jsonData.candidates[0].content.parts[0].text;
+                                    accumulatedText += textChunk;
+                                    resultDisplayElement.innerHTML = responsePrefix + marked.parse(accumulatedText);
+                                    resultDisplayElement.scrollTop = resultDisplayElement.scrollHeight; // Auto-scroll
+                                    successStreaming = true;
+                                } else if (jsonData.promptFeedback && jsonData.promptFeedback.blockReason) {
+                                    let blockMessage = `${i18n[currentTargetLanguage].alert_apiError} Blocked by API. Reason: ${jsonData.promptFeedback.blockReason}`;
+                                    if (jsonData.promptFeedback.safetyRatings) {
+                                        blockMessage += `\nDetails: ${jsonData.promptFeedback.safetyRatings.map(r => `${r.category} was ${r.probability}`).join(', ')}`;
+                                    }
+                                    // Append block message to the output, it's part of the stream now
+                                    accumulatedText += `\n\n**API Error:**\n${blockMessage}\n\n`;
+                                    resultDisplayElement.innerHTML = responsePrefix + marked.parse(accumulatedText);
+                                    // No need to set successStreaming to false here, as some text might have been received before block.
+                                    // The block reason will be visible in the output.
+                                    if (resultDisplayElement === resultArea) tellMeMoreButton.classList.add('hidden');
+                                }
+                            } catch (e) {
+                                console.warn('Error parsing JSON chunk from stream:', e, "Line was: ", line);
+                            }
                         }
                     }
-
-                } else if (data.promptFeedback && data.promptFeedback.blockReason) {
-                    let blockMessage = `${i18n[currentTargetLanguage].alert_apiError} Blocked by API. Reason: ${data.promptFeedback.blockReason}`;
-                     if (data.promptFeedback.safetyRatings) {
-                        blockMessage += `\nDetails: ${data.promptFeedback.safetyRatings.map(r => `${r.category} was ${r.probability}`).join(', ')}`;
-                    }
-                    resultDisplayElement.innerHTML = marked.parse(blockMessage); // Parse for potential markdown in error message
-                    if (resultDisplayElement === resultArea) tellMeMoreButton.classList.add('hidden');
                 }
-                else {
-                    console.warn("Unexpected API response structure:", data);
-                    resultDisplayElement.innerHTML = marked.parse(i18n[currentTargetLanguage].alert_apiError + 'Could not parse description. Check console.');
-                    if (resultDisplayElement === resultArea) tellMeMoreButton.classList.add('hidden');
+                
+                // After stream has finished
+                if (resultDisplayElement === resultArea && successStreaming) {
+                    const isNotMenuResponse = accumulatedText.includes("不是一份菜單") || accumulatedText.includes("not a menu");
+                    const isBlockedResponse = accumulatedText.includes("Blocked by API"); // Check if a block message was part of the stream
+                    
+                    if (!isNotMenuResponse && !isBlockedResponse) {
+                         tellMeMoreButton.classList.remove('hidden');
+                    } else {
+                         tellMeMoreButton.classList.add('hidden');
+                    }
                 }
 
             } catch (error) {
-                console.error("Error calling Gemini API:", error);
-                resultDisplayElement.innerHTML = marked.parse(i18n[currentTargetLanguage].alert_apiError + error.message);
+                console.error("Error calling Gemini API (streaming):", error);
+                // Append error to the current content or replace if nothing was streamed
+                const errorHtml = marked.parse(i18n[currentTargetLanguage].alert_apiError + error.message);
+                if (accumulatedText.trim() === "") {
+                    resultDisplayElement.innerHTML = responsePrefix + errorHtml;
+                } else {
+                    resultDisplayElement.innerHTML += `<hr>${errorHtml}`; // Append error after streamed content
+                }
+
                 if (resultDisplayElement === resultArea) tellMeMoreButton.classList.add('hidden');
+                successStreaming = false; // Ensure success is false on error
             } finally {
                 loadingElement.classList.add('hidden');
-                if (resultDisplayElement.innerHTML.trim() === '') {
+                // If nothing was successfully streamed and the display area only contains the prefix (or is empty)
+                if (!successStreaming && (resultDisplayElement.innerHTML.trim() === responsePrefix.trim() || resultDisplayElement.innerHTML.trim() === '')) {
                      resultDisplayElement.innerHTML = placeholderText;
+                } else if (successStreaming && accumulatedText.trim() === '') {
+                    // Stream was successful (connected, finished) but sent no actual text content
+                    resultDisplayElement.innerHTML = responsePrefix + i18n[currentTargetLanguage].alert_apiError + "AI did not provide any text output.";
                 }
             }
-            return success;
         }
+
 
         describeButton.addEventListener('click', async () => {
             currentRequestMode = 'describe';
@@ -951,16 +1012,16 @@ If the image content does not appear to be a menu, or the previous translation i
             moreInfoArea.classList.add('hidden');
             moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder;
             
-            cameraViewDiv.classList.remove('hidden'); // Prepare for camera
+            cameraViewDiv.classList.remove('hidden'); 
             videoPreview.classList.remove('hidden'); 
             captureButton.classList.remove('hidden'); 
             uploadButton.classList.remove('hidden');
-            zoomControls.classList.add('hidden'); // Ensure zoom is hidden initially
+            zoomControls.classList.add('hidden'); 
         });
 
         // Initial load
         loadSettings();
-        if (currentApiKey && false) { // Set to true to auto-skip settings if API key exists (not recommended for first use)
+        if (currentApiKey && false) { 
              settingsView.classList.add('hidden');
              appView.classList.remove('hidden');
              startCamera();
