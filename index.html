@@ -395,10 +395,10 @@
 如果圖片內容看起來並非菜單，或先前的翻譯結果顯示非菜單，請直接回覆「無法提供更多關於非菜單內容的解說。」`,
                 moreInfoPlaceholder: '更多詳細資訊會顯示在這裡～',
                 moreInfoPrefix: 'AI 補充說明：\n',
-                copyButtonText: '複製', // New i18n string for copy button
-                copiedButtonText: '已複製!', // New i18n string for copied state
-                copyFailedAlert: '複製失敗!', // New i18n string
-                noContentCopyAlert: '沒有內容可以複製。' // New i18n string
+                copyButtonText: '複製', 
+                copiedButtonText: '已複製!', 
+                copyFailedAlert: '複製失敗!', 
+                noContentCopyAlert: '沒有內容可以複製。' 
             },
             'en': {
                 apiKeyLabel: 'API Key:',
@@ -606,7 +606,6 @@ If the image content does not appear to be a menu, or the previous translation i
             const copyButton = textAreaElement.querySelector('.copy-button');
             if (!copyButton) return;
 
-            // Set default text for copy button from i18n
             copyButton.textContent = i18n[currentTargetLanguage].copyButtonText || '複製';
 
 
@@ -620,7 +619,7 @@ If the image content does not appear to be a menu, or the previous translation i
             const htmlContent = clone.innerHTML.trim();
             const textContent = clone.innerText.trim();
 
-            const justPrefix = currentPrefix && htmlContent === currentPrefix.trim().replace(/\n/g, '<br>').replace(/\n/g, ''); // Compare with potential HTML representation of prefix
+            const justPrefix = currentPrefix && htmlContent === currentPrefix.trim().replace(/\n/g, '<br>').replace(/\n/g, ''); 
             const isPlaceholder = htmlContent === placeholder.trim();
             
             if (textContent && !isPlaceholder && !justPrefix && textContent !== currentPrefix.trim()) {
@@ -644,7 +643,6 @@ If the image content does not appear to be a menu, or the previous translation i
                     if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
                         el.placeholder = i18n[lang][key];
                     } else {
-                        // To avoid replacing actual content with placeholder after language change
                         const currentContentClone = el.cloneNode(true);
                         const copyBtnInClone = currentContentClone.querySelector('.copy-button');
                         if (copyBtnInClone) copyBtnInClone.remove();
@@ -658,16 +656,14 @@ If the image content does not appear to be a menu, or the previous translation i
                                 break;
                             }
                         }
-                         // Also check if it's just the prefix
                         const currentPrefix = el.id === 'resultArea' ? i18n[lang].apiResponsePrefix : (el.id === 'moreInfoArea' ? i18n[lang].moreInfoPrefix : "");
                         if (currentActualContent === currentPrefix.trim().replace(/\n/g, '<br>').replace(/\n/g, '')) {
-                            isCurrentlyPlaceholder = true; // Treat as empty if only prefix
+                            isCurrentlyPlaceholder = true; 
                         }
 
 
                         if (isCurrentlyPlaceholder) {
                            el.innerHTML = i18n[lang][key]; 
-                           // Re-add copy button if it was removed by innerHTML assignment
                            if (!el.querySelector('.copy-button') && (el.id === 'resultArea' || el.id === 'moreInfoArea')) {
                                const newCopyButton = document.createElement('button');
                                newCopyButton.className = 'copy-button';
@@ -700,7 +696,6 @@ If the image content does not appear to be a menu, or the previous translation i
              if (zoomLabelEl && i18n[lang] && i18n[lang].zoomLabel) {
                  zoomLabelEl.textContent = i18n[lang].zoomLabel;
              }
-             // Update copy button visibility and text after language change
             if (document.getElementById('resultArea')) {
                 updateCopyButtonVisibility(document.getElementById('resultArea'), 'resultPlaceholder');
             }
@@ -745,7 +740,7 @@ If the image content does not appear to be a menu, or the previous translation i
                 captureButton.classList.remove('hidden');
                 uploadButton.classList.remove('hidden');
 
-                capturedImage.style.display = 'none'; // Ensure preview is hidden
+                capturedImage.style.display = 'none'; 
                 controlsAfterCapture.classList.add('hidden');
                 
                 resultArea.innerHTML = i18n[currentTargetLanguage].resultPlaceholder + `<button class="copy-button" data-clipboard-target-id="resultArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
@@ -829,13 +824,13 @@ If the image content does not appear to be a menu, or the previous translation i
         
         function showImageAndControls(imageDataUrl) {
             capturedImage.src = imageDataUrl;
-            capturedImage.style.display = 'block'; // Show the preview image
+            capturedImage.style.display = 'block'; 
             
             videoPreview.classList.add('hidden');
             zoomControls.classList.add('hidden');
             cameraViewDiv.classList.add('hidden'); 
 
-            controlsAfterCapture.classList.remove('hidden'); // This div now contains the image and buttons
+            controlsAfterCapture.classList.remove('hidden'); 
             promptHelper.textContent = i18n[currentTargetLanguage].promptHelperText;
             
             resultArea.innerHTML = i18n[currentTargetLanguage].resultPlaceholder + `<button class="copy-button" data-clipboard-target-id="resultArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
@@ -880,7 +875,7 @@ If the image content does not appear to be a menu, or the previous translation i
 
         recaptureButton.addEventListener('click', () => {
             startCamera(); 
-            capturedImage.style.display = 'none'; // Hide preview image
+            capturedImage.style.display = 'none'; 
             controlsAfterCapture.classList.add('hidden');
             
             resultArea.innerHTML = i18n[currentTargetLanguage].resultPlaceholder + `<button class="copy-button" data-clipboard-target-id="resultArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
@@ -1049,7 +1044,7 @@ If the image content does not appear to be a menu, or the previous translation i
                 if (accumulatedText.trim() === "") {
                     resultDisplayElement.innerHTML = responsePrefix + errorHtml + `<button class="copy-button" data-clipboard-target-id="${resultDisplayElement.id}" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
                 } else {
-                    resultDisplayElement.innerHTML += `<hr>${errorHtml}`; // Append error, copy button already there from last successful write
+                    resultDisplayElement.innerHTML += `<hr>${errorHtml}`; 
                 }
                 updateCopyButtonVisibility(resultDisplayElement, placeholderTextKey);
 
@@ -1128,7 +1123,7 @@ If the image content does not appear to be a menu, or the previous translation i
             settingsView.classList.remove('hidden');
             
             capturedImage.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="; 
-            capturedImage.style.display = 'none'; // Hide preview
+            capturedImage.style.display = 'none'; 
             controlsAfterCapture.classList.add('hidden');
             
             resultArea.innerHTML = i18n[currentTargetLanguage].resultPlaceholder + `<button class="copy-button" data-clipboard-target-id="resultArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
@@ -1145,65 +1140,73 @@ If the image content does not appear to be a menu, or the previous translation i
             zoomControls.classList.add('hidden'); 
         });
 
-        function setupCopyButtons() {
-            document.querySelectorAll('.copy-button').forEach(button => {
-                // Ensure text content is set according to current language from the start
-                button.textContent = i18n[currentTargetLanguage].copyButtonText || '複製';
-                button.title = i18n[currentTargetLanguage].copyButtonText || '複製內容';
-
-
-                button.addEventListener('click', async (event) => {
-                    const targetId = button.getAttribute('data-clipboard-target-id');
-                    const targetElement = document.getElementById(targetId);
-                    if (targetElement) {
-                        const clone = targetElement.cloneNode(true);
-                        const buttonInClone = clone.querySelector('.copy-button');
-                        if (buttonInClone) {
-                            buttonInClone.remove();
-                        }
-                        let textToCopy = clone.innerText || clone.textContent; 
-
-                        const prefixes = [
-                            i18n[currentTargetLanguage].apiResponsePrefix, 
-                            i18n[currentTargetLanguage].moreInfoPrefix
-                        ];
-                        for (const prefix of prefixes) {
-                            if (textToCopy.startsWith(prefix)) {
-                                textToCopy = textToCopy.substring(prefix.length).trim();
-                                break;
-                            }
-                        }
-
-                        if (textToCopy.trim()) {
-                            try {
-                                await navigator.clipboard.writeText(textToCopy);
-                                const originalText = i18n[currentTargetLanguage].copyButtonText || '複製';
-                                button.textContent = i18n[currentTargetLanguage].copiedButtonText || '已複製!';
-                                setTimeout(() => {
-                                    button.textContent = originalText;
-                                }, 2000);
-                            } catch (err) {
-                                console.error('Failed to copy: ', err);
-                                alert(i18n[currentTargetLanguage].copyFailedAlert || '複製失敗!');
-                            }
-                        } else {
-                            alert(i18n[currentTargetLanguage].noContentCopyAlert || '沒有內容可以複製。');
-                        }
-                    }
-                });
-            });
-        }
-
-
         // Initial load
         loadSettings();
-        setupCopyButtons(); // Setup listeners for any statically added copy buttons. Dynamically added ones need listeners too.
-                           // The current implementation re-adds buttons with innerHTML, so listeners might need re-attaching or use event delegation.
-                           // For simplicity, current setupCopyButtons() will be called again if needed, or rely on it working for the initial ones.
-                           // My code now adds the button HTML string directly, so setupCopyButtons should be called once.
-                           // It's better to have static buttons in HTML and then call setup once.
 
-        if (currentApiKey && false) { // This 'false' condition was in original, kept it.
+        // --- MODIFICATION START: Event delegation for copy buttons ---
+        appView.addEventListener('click', async (event) => {
+            const button = event.target.closest('.copy-button'); // Check if the clicked element or its ancestor is a copy button
+            if (button) {
+                const targetId = button.getAttribute('data-clipboard-target-id');
+                const targetElement = document.getElementById(targetId);
+
+                if (targetElement) {
+                    // Clone the target element to safely remove the copy button from the text to be copied
+                    const clone = targetElement.cloneNode(true);
+                    const buttonInClone = clone.querySelector('.copy-button');
+                    if (buttonInClone) {
+                        buttonInClone.remove();
+                    }
+
+                    let textToCopy = clone.innerText || clone.textContent || ""; 
+
+                    // Use currentTargetLanguage which should be up-to-date from UI interactions
+                    const lang = currentTargetLanguage; 
+
+                    const prefixes = [
+                        i18n[lang]?.apiResponsePrefix,
+                        i18n[lang]?.moreInfoPrefix
+                    ].filter(Boolean); // Filter out undefined/null prefixes if lang or prefix is not found
+
+                    for (const prefix of prefixes) {
+                        if (textToCopy.startsWith(prefix)) {
+                            textToCopy = textToCopy.substring(prefix.length).trim();
+                            break; // Assume only one prefix will match
+                        }
+                    }
+
+                    if (textToCopy.trim()) {
+                        try {
+                            await navigator.clipboard.writeText(textToCopy);
+                            
+                            const originalTextKey = 'copyButtonText';
+                            const copiedTextKey = 'copiedButtonText';
+                            
+                            // Use optional chaining and default values for robustness
+                            button.textContent = i18n[lang]?.[copiedTextKey] || '已複製!';
+                            
+                            setTimeout(() => {
+                                // Re-fetch current language at the moment of restoring text, in case it changed
+                                const currentLangAfterTimeout = currentTargetLanguage;
+                                button.textContent = i18n[currentLangAfterTimeout]?.[originalTextKey] || '複製';
+                            }, 2000);
+
+                        } catch (err) {
+                            console.error('Failed to copy: ', err);
+                            const failedAlertKey = 'copyFailedAlert';
+                            alert(i18n[lang]?.[failedAlertKey] || '複製失敗!');
+                        }
+                    } else {
+                        const noContentAlertKey = 'noContentCopyAlert';
+                        alert(i18n[lang]?.[noContentAlertKey] || '沒有內容可以複製。');
+                    }
+                }
+            }
+        });
+        // --- MODIFICATION END ---
+
+
+        if (currentApiKey && false) { 
              settingsView.classList.add('hidden');
              appView.classList.remove('hidden');
              startCamera();
