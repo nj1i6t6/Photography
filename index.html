@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AI 圖像辨識翻譯</title>
+    <!-- PWA Manifest Link -->
+    <link rel="manifest" href="./manifest.json">
+    <!-- Theme Color for browsers -->
+    <meta name="theme-color" content="#007bff">
+    <!-- Apple Touch Icon for iOS Safari -->
+    <link rel="apple-touch-icon" href="./112992.jpg">
     <style>
         :root {
             --primary-color: #007bff;
@@ -118,11 +124,11 @@
             white-space: pre-wrap; /* To preserve newlines from AI before markdown */
             position: relative; /* For positioning the copy button */
         }
-        .info-display-area h1, 
-        .info-display-area h2, 
-        .info-display-area h3, 
-        .info-display-area h4, 
-        .info-display-area h5, 
+        .info-display-area h1,
+        .info-display-area h2,
+        .info-display-area h3,
+        .info-display-area h4,
+        .info-display-area h5,
         .info-display-area h6 {
             margin-top: 1em;
             margin-bottom: 0.5em;
@@ -192,7 +198,7 @@
         }
         .button-group button {
             flex: 1; /* Make buttons in a group share space equally */
-            margin-top: 0; 
+            margin-top: 0;
             margin-bottom: 0;
         }
         #zoomControls {
@@ -232,10 +238,7 @@
 <body>
     <div id="settingsView" class="container">
         <h1>設定</h1>
-        <div>
-            <label for="apiKey" data-i18n="apiKeyLabel">API 金鑰:</label>
-            <input type="password" id="apiKey" placeholder="請輸入您的 Gemini API 金鑰">
-        </div>
+        <!-- API Key input removed -->
         <div>
             <label for="targetLanguage" data-i18n="languageLabel">目標語言:</label>
             <select id="targetLanguage">
@@ -245,7 +248,8 @@
                 <option value="ko">한국어</option>
             </select>
         </div>
-        <button id="saveSettings" data-i18n="saveSettingsButton">儲存設定並開始</button>
+        <button id="startButton" data-i18n="startButton">開始使用</button>
+        <button id="addToHomeScreenButton" class="secondary" data-i18n="addToHomeScreenButton" style="margin-top: 10px;">新增至主畫面</button>
     </div>
 
     <div id="appView" class="container hidden">
@@ -263,13 +267,10 @@
             <input type="file" id="imageUploadInput" class="hidden" accept="image/*">
             <canvas id="canvas" class="hidden"></canvas>
         </div>
-        
-        <!-- capturedImage is now inside controlsAfterCapture -->
-        
+
         <div id="controlsAfterCapture" class="hidden">
-            <!-- Image preview will be here -->
-            <img id="capturedImage" alt="Captured Image"> <!-- Style is in CSS, display:none initially -->
-            
+            <img id="capturedImage" alt="Captured Image">
+
             <p id="promptHelper" data-i18n="promptHelperText">已拍攝照片。點擊下方按鈕進行描述。</p>
             <div class="button-group">
                 <button id="describeButton" data-i18n="describeButton">這是什麼？</button>
@@ -285,7 +286,7 @@
         <div id="resultArea" class="info-display-area" data-i18n-placeholder="resultPlaceholder">辨識結果將顯示於此
             <button class="copy-button" data-clipboard-target-id="resultArea" title="複製內容" style="display:none;">複製</button>
         </div>
-        
+
         <button id="tellMeMoreButton" class="secondary hidden" data-i18n="tellMeMoreButtonLabel" style="margin-top: 15px;">告訴我更多</button>
         <div id="moreInfoLoadingIndicator" class="loader hidden"></div>
         <div id="moreInfoArea" class="info-display-area hidden" data-i18n-placeholder="moreInfoPlaceholder" style="margin-top:10px;">更多資訊將顯示於此
@@ -300,11 +301,12 @@
     <script>
         const settingsView = document.getElementById('settingsView');
         const appView = document.getElementById('appView');
-        const apiKeyInput = document.getElementById('apiKey');
+        // apiKeyInput removed
         const targetLanguageSelect = document.getElementById('targetLanguage');
-        const saveSettingsButton = document.getElementById('saveSettings');
-        
-        const cameraViewDiv = document.getElementById('cameraView'); // For easier show/hide
+        const startButton = document.getElementById('startButton'); // Renamed from saveSettingsButton
+        const addToHomeScreenButton = document.getElementById('addToHomeScreenButton');
+
+        const cameraViewDiv = document.getElementById('cameraView');
         const videoPreview = document.getElementById('videoPreview');
         const canvas = document.getElementById('canvas');
         const captureButton = document.getElementById('captureButton');
@@ -313,13 +315,13 @@
         const zoomControls = document.getElementById('zoomControls');
         const zoomSlider = document.getElementById('zoomSlider');
 
-        const capturedImage = document.getElementById('capturedImage'); // This is now the preview image
+        const capturedImage = document.getElementById('capturedImage');
         const controlsAfterCapture = document.getElementById('controlsAfterCapture');
         const describeButton = document.getElementById('describeButton');
         const menuModeButton = document.getElementById('menuModeButton');
         const recaptureButton = document.getElementById('recaptureButton');
         const downloadImageButton = document.getElementById('downloadImageButton');
-        
+
         const loadingIndicator = document.getElementById('loadingIndicator');
         const resultArea = document.getElementById('resultArea');
         const backToSettingsButton = document.getElementById('backToSettings');
@@ -330,16 +332,18 @@
         const moreInfoArea = document.getElementById('moreInfoArea');
 
         let stream;
-        let videoTrack; // For camera controls
-        let currentApiKey = '';
+        let videoTrack;
+        let currentApiKey = 'AIzaSyC2l7mrzCMYcZ33pAOldgVbBiCxGvBuizc'; // API Key hardcoded
         let currentTargetLanguage = 'zh-TW';
-        let currentRequestMode = 'describe'; // 'describe' or 'menu'
+        let currentRequestMode = 'describe';
+        let deferredInstallPrompt = null;
 
         const i18n = {
             'zh-TW': {
-                apiKeyLabel: 'API 金鑰:',
+                // apiKeyLabel: 'API 金鑰:', // Removed
                 languageLabel: '目標語言:',
-                saveSettingsButton: '儲存設定並開始',
+                startButton: '開始使用', // Renamed from saveSettingsButton
+                addToHomeScreenButton: '新增至主畫面',
                 appTitle: '這是啥？AI幫你看',
                 captureButton: '拍攝',
                 uploadButtonLabel: '從檔案選擇',
@@ -350,7 +354,7 @@
                 downloadImageButtonLabel: '下載圖片',
                 resultPlaceholder: 'AI 的分析結果會顯示在這裡喔！',
                 backToSettingsButton: '返回設定',
-                alert_apiKeyRequired: '請先輸入你的 API 金鑰啦！',
+                // alert_apiKeyRequired: '請先輸入你的 API 金鑰啦！', // Removed
                 alert_cameraError: '哎呀，相機打不開捏: ',
                 alert_apiError: 'API 請求失敗，再試一次看看？ ',
                 alert_noImage: '要先拍張照片或上傳圖片才能分析啦！',
@@ -395,15 +399,17 @@
 如果圖片內容看起來並非菜單，或先前的翻譯結果顯示非菜單，請直接回覆「無法提供更多關於非菜單內容的解說。」`,
                 moreInfoPlaceholder: '更多詳細資訊會顯示在這裡～',
                 moreInfoPrefix: 'AI 補充說明：\n',
-                copyButtonText: '複製', 
-                copiedButtonText: '已複製!', 
-                copyFailedAlert: '複製失敗!', 
-                noContentCopyAlert: '沒有內容可以複製。' 
+                copyButtonText: '複製',
+                copiedButtonText: '已複製!',
+                copyFailedAlert: '複製失敗!',
+                noContentCopyAlert: '沒有內容可以複製。',
+                alert_addToHomeScreenManually: '您的瀏覽器可能不支援自動新增，或您已安裝/拒絕過。請嘗試透過瀏覽器選單手動「新增至主畫面」。'
             },
             'en': {
-                apiKeyLabel: 'API Key:',
+                // apiKeyLabel: 'API Key:', // Removed
                 languageLabel: 'Target Language:',
-                saveSettingsButton: 'Save Settings & Start',
+                startButton: 'Start Using', // Renamed
+                addToHomeScreenButton: 'Add to Home Screen',
                 appTitle: "What's This? AI Vision",
                 captureButton: 'Capture',
                 uploadButtonLabel: 'Upload Image',
@@ -414,7 +420,7 @@
                 downloadImageButtonLabel: 'Download Image',
                 resultPlaceholder: 'AI analysis will appear here!',
                 backToSettingsButton: 'Back to Settings',
-                alert_apiKeyRequired: 'Please enter your API Key.',
+                // alert_apiKeyRequired: 'Please enter your API Key.', // Removed
                 alert_cameraError: 'Could not start camera: ',
                 alert_apiError: 'API request failed. Try again? ',
                 alert_noImage: 'Please capture or upload an image first!',
@@ -462,12 +468,14 @@ If the image content does not appear to be a menu, or the previous translation i
                 copyButtonText: 'Copy',
                 copiedButtonText: 'Copied!',
                 copyFailedAlert: 'Copy failed!',
-                noContentCopyAlert: 'No content to copy.'
+                noContentCopyAlert: 'No content to copy.',
+                alert_addToHomeScreenManually: 'Your browser may not support automatic adding, or you have already installed/declined. Please try adding to home screen manually via browser menu.'
             },
             'ja': {
-                apiKeyLabel: 'APIキー:',
+                // apiKeyLabel: 'APIキー:', // Removed
                 languageLabel: 'ターゲット言語:',
-                saveSettingsButton: '設定を保存して開始',
+                startButton: '利用開始', // Renamed
+                addToHomeScreenButton: 'ホーム画面に追加',
                 appTitle: 'これは何？AI画像認識',
                 captureButton: '撮影',
                 uploadButtonLabel: '画像をアップロード',
@@ -478,7 +486,7 @@ If the image content does not appear to be a menu, or the previous translation i
                 downloadImageButtonLabel: '画像をダウンロード',
                 resultPlaceholder: 'AIの解析結果はここに表示されます！',
                 backToSettingsButton: '設定に戻る',
-                alert_apiKeyRequired: 'APIキーを入力してください。',
+                // alert_apiKeyRequired: 'APIキーを入力してください。', // Removed
                 alert_cameraError: 'カメラを起動できませんでした: ',
                 alert_apiError: 'APIリクエストに失敗しました。もう一度試しますか？',
                 alert_noImage: 'まず画像を撮影またはアップ로드してください！',
@@ -526,12 +534,14 @@ If the image content does not appear to be a menu, or the previous translation i
                 copyButtonText: 'コピー',
                 copiedButtonText: 'コピー完了!',
                 copyFailedAlert: 'コピー失敗!',
-                noContentCopyAlert: 'コピーする内容がありません。'
+                noContentCopyAlert: 'コピーする内容がありません。',
+                alert_addToHomeScreenManually: 'お使いのブラウザは自動追加をサポートしていないか、既にインストール/拒否されている可能性があります。ブラウザのメニューから手動で「ホーム画面に追加」をお試しください。'
             },
             'ko': {
-                apiKeyLabel: 'API 키:',
+                // apiKeyLabel: 'API 키:', // Removed
                 languageLabel: '대상 언어:',
-                saveSettingsButton: '설정 저장 및 시작',
+                startButton: '사용 시작', // Renamed
+                addToHomeScreenButton: '홈 화면에 추가',
                 appTitle: '이게 뭐지? AI 이미지 분석',
                 captureButton: '촬영',
                 uploadButtonLabel: '이미지 업로드',
@@ -542,7 +552,7 @@ If the image content does not appear to be a menu, or the previous translation i
                 downloadImageButtonLabel: '이미지 다운로드',
                 resultPlaceholder: 'AI 분석 결과가 여기에 표시됩니다!',
                 backToSettingsButton: '설정으로 돌아가기',
-                alert_apiKeyRequired: 'API 키를 입력해주세요.',
+                // alert_apiKeyRequired: 'API 키를 입력해주세요.', // Removed
                 alert_cameraError: '카메라를 시작할 수 없습니다: ',
                 alert_apiError: 'API 요청에 실패했습니다. 다시 시도하시겠습니까? ',
                 alert_noImage: '먼저 이미지를 촬영하거나 업로드해주세요!',
@@ -574,26 +584,27 @@ If the image content does not appear to be a menu, or the previous translation i
 ...`,
                 apiPromptMenuMoreInfo: `이전 메뉴 번역에 이어, 이 메뉴 이미지의 각 항목에 대해 가능하다면 간단한 "항목 설명"을 제공하십시오.
 - 설명에는 주요 재료, 풍미 특징, 양 추측 또는 주문에 도움이 될 만한 보충 정보가 포함될 수 있습니다.
-- 대상 언어(${currentTargetLanguage})의 자연스러운 표현을 사용하십시오.
-- 형식은 "원문", "번역", "가격"을 나열한 다음 그 아래에 "설명"을 추가하십시오.
+- 대상 언어(${currentTargetLanguage})의 자연스러운 표현을 사용하십시오。
+- 格式請依然先列出「原文」、「翻譯」、「價格」，然後在其下方加上「解說」。
 
-응답 템플릿 (Markdown 사용):
-- 원문: [원문 항목 1], 번역: [번역된 항목 1], 가격: [가격 1]
-  설명: [항목 1에 대한 설명...]
-- 원문: [원문 항목 2], 번역: [번역된 항목 2], 가격: [가격 2]
-  설명: [항목 2에 대한 설명...]
+回覆樣板 (使用 Markdown)：
+- 原文: [品項原文1], 翻譯: [品項翻譯1], 價格: [價格1]
+  解說: [對品項1的解說...]
+- 原文: [品項原文2], 翻譯: [品項翻譯2], 價格: [價格2]
+  解說: [對品項2的解說...]
 ...
 
-이미지 내용이 메뉴로 보이지 않거나 이전 번역에서 메뉴가 아니라고 표시된 경우, "메뉴가 아닌 내용에 대한 자세한 정보를 제공할 수 없습니다."라고 직접 응답하십시오.`,
+如果圖片內容看起來並非菜單，或先前的翻譯結果顯示非菜單，請直接回覆「無法提供更多關於非菜單內容的解說。」`,
                 moreInfoPlaceholder: '더 자세한 정보가 여기에 표시됩니다!',
                 moreInfoPrefix: 'AI 추가 설명：\n',
                 copyButtonText: '복사',
                 copiedButtonText: '복사됨!',
                 copyFailedAlert: '복사 실패!',
-                noContentCopyAlert: '복사할 내용이 없습니다.'
+                noContentCopyAlert: '복사할 내용이 없습니다.',
+                alert_addToHomeScreenManually: '브라우저가 자동 추가를 지원하지 않거나 이미 설치/거부했을 수 있습니다. 브라우저 메뉴를 통해 수동으로 홈 화면에 추가해 보세요.'
             }
         };
-        
+
         function getProcessedPrompt(promptKey) {
             let promptText = i18n[currentTargetLanguage][promptKey];
             if (promptText && typeof promptText === 'string') {
@@ -619,9 +630,9 @@ If the image content does not appear to be a menu, or the previous translation i
             const htmlContent = clone.innerHTML.trim();
             const textContent = clone.innerText.trim();
 
-            const justPrefix = currentPrefix && htmlContent === currentPrefix.trim().replace(/\n/g, '<br>').replace(/\n/g, ''); 
+            const justPrefix = currentPrefix && htmlContent === currentPrefix.trim().replace(/\n/g, '<br>').replace(/\n/g, '');
             const isPlaceholder = htmlContent === placeholder.trim();
-            
+
             if (textContent && !isPlaceholder && !justPrefix && textContent !== currentPrefix.trim()) {
                 copyButton.style.display = 'inline-block';
             } else {
@@ -658,12 +669,12 @@ If the image content does not appear to be a menu, or the previous translation i
                         }
                         const currentPrefix = el.id === 'resultArea' ? i18n[lang].apiResponsePrefix : (el.id === 'moreInfoArea' ? i18n[lang].moreInfoPrefix : "");
                         if (currentActualContent === currentPrefix.trim().replace(/\n/g, '<br>').replace(/\n/g, '')) {
-                            isCurrentlyPlaceholder = true; 
+                            isCurrentlyPlaceholder = true;
                         }
 
 
                         if (isCurrentlyPlaceholder) {
-                           el.innerHTML = i18n[lang][key]; 
+                           el.innerHTML = i18n[lang][key];
                            if (!el.querySelector('.copy-button') && (el.id === 'resultArea' || el.id === 'moreInfoArea')) {
                                const newCopyButton = document.createElement('button');
                                newCopyButton.className = 'copy-button';
@@ -684,7 +695,8 @@ If the image content does not appear to be a menu, or the previous translation i
             }
             const mainTitle = document.querySelector('h1[data-i18n="appTitle"]');
              if (mainTitle && i18n[lang] && i18n[lang].appTitle) mainTitle.textContent = i18n[lang].appTitle;
-            [describeButton, menuModeButton, recaptureButton, downloadImageButton, tellMeMoreButton, captureButton, uploadButton, saveSettingsButton, backToSettingsButton].forEach(btn => {
+
+            [describeButton, menuModeButton, recaptureButton, downloadImageButton, tellMeMoreButton, captureButton, uploadButton, startButton, backToSettingsButton, addToHomeScreenButton].forEach(btn => {
                 if (btn) {
                     const i18nKey = btn.dataset.i18n;
                     if (i18nKey && i18n[lang] && i18n[lang][i18nKey]) {
@@ -703,21 +715,17 @@ If the image content does not appear to be a menu, or the previous translation i
                 updateCopyButtonVisibility(document.getElementById('moreInfoArea'), 'moreInfoPlaceholder');
             }
         }
-        
+
         function loadSettings() {
-            const savedApiKey = localStorage.getItem('apiKey');
+            // API Key is hardcoded, no need to load from localStorage
             const savedLanguage = localStorage.getItem('targetLanguage');
 
-            if (savedApiKey) {
-                apiKeyInput.value = savedApiKey;
-                currentApiKey = savedApiKey;
-            }
             if (savedLanguage) {
                 targetLanguageSelect.value = savedLanguage;
             } else {
-                targetLanguageSelect.value = 'zh-TW'; 
+                targetLanguageSelect.value = 'zh-TW';
             }
-            updateUIStrings(targetLanguageSelect.value);
+            updateUIStrings(targetLanguageSelect.value); // This will set currentTargetLanguage
         }
 
         function stopCameraStream() {
@@ -730,19 +738,19 @@ If the image content does not appear to be a menu, or the previous translation i
         }
 
         async function startCamera() {
-            stopCameraStream(); 
+            stopCameraStream();
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
                 videoPreview.srcObject = stream;
                 videoPreview.classList.remove('hidden');
-                cameraViewDiv.classList.remove('hidden'); 
-                
+                cameraViewDiv.classList.remove('hidden');
+
                 captureButton.classList.remove('hidden');
                 uploadButton.classList.remove('hidden');
 
-                capturedImage.style.display = 'none'; 
+                capturedImage.style.display = 'none';
                 controlsAfterCapture.classList.add('hidden');
-                
+
                 resultArea.innerHTML = i18n[currentTargetLanguage].resultPlaceholder + `<button class="copy-button" data-clipboard-target-id="resultArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
                 updateCopyButtonVisibility(resultArea, 'resultPlaceholder');
                 tellMeMoreButton.classList.add('hidden');
@@ -777,20 +785,15 @@ If the image content does not appear to be a menu, or the previous translation i
                 console.error("Error accessing camera: ", err);
                 resultArea.innerHTML = i18n[currentTargetLanguage].alert_cameraError + err.message + `<button class="copy-button" data-clipboard-target-id="resultArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
                 updateCopyButtonVisibility(resultArea, 'resultPlaceholder');
-                cameraViewDiv.classList.add('hidden'); 
+                cameraViewDiv.classList.add('hidden');
                 zoomControls.classList.add('hidden');
             }
         }
 
-        saveSettingsButton.addEventListener('click', () => {
-            const apiKey = apiKeyInput.value.trim();
-            if (!apiKey) {
-                alert(i18n[currentTargetLanguage].alert_apiKeyRequired);
-                return;
-            }
-            currentApiKey = apiKey;
-            localStorage.setItem('apiKey', apiKey);
+        startButton.addEventListener('click', () => {
+            // API Key is already set and not taken from input
             localStorage.setItem('targetLanguage', targetLanguageSelect.value);
+            // updateUIStrings(targetLanguageSelect.value); // Already handled by targetLanguageSelect change event or loadSettings
 
             settingsView.classList.add('hidden');
             appView.classList.remove('hidden');
@@ -815,24 +818,24 @@ If the image content does not appear to be a menu, or the previous translation i
                     videoTrack.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] })
                         .then(() => console.log("Single-shot focus triggered."))
                         .catch(e => console.warn("Single-shot focus error:", e));
-                } else if (focusModes.includes('continuous')) { 
+                } else if (focusModes.includes('continuous')) {
                      videoTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] })
                         .catch(e => console.warn("Re-applying continuous focus error:", e));
                 }
             }
         });
-        
+
         function showImageAndControls(imageDataUrl) {
             capturedImage.src = imageDataUrl;
-            capturedImage.style.display = 'block'; 
-            
+            capturedImage.style.display = 'block';
+
             videoPreview.classList.add('hidden');
             zoomControls.classList.add('hidden');
-            cameraViewDiv.classList.add('hidden'); 
+            cameraViewDiv.classList.add('hidden');
 
-            controlsAfterCapture.classList.remove('hidden'); 
+            controlsAfterCapture.classList.remove('hidden');
             promptHelper.textContent = i18n[currentTargetLanguage].promptHelperText;
-            
+
             resultArea.innerHTML = i18n[currentTargetLanguage].resultPlaceholder + `<button class="copy-button" data-clipboard-target-id="resultArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
             updateCopyButtonVisibility(resultArea, 'resultPlaceholder');
             tellMeMoreButton.classList.add('hidden');
@@ -852,7 +855,7 @@ If the image content does not appear to be a menu, or the previous translation i
             canvas.height = videoPreview.videoHeight;
             const context = canvas.getContext('2d');
             context.drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
-            
+
             const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
             showImageAndControls(imageDataUrl);
         });
@@ -870,14 +873,14 @@ If the image content does not appear to be a menu, or the previous translation i
                 }
                 reader.readAsDataURL(file);
             }
-            imageUploadInput.value = null; 
+            imageUploadInput.value = null;
         });
 
         recaptureButton.addEventListener('click', () => {
-            startCamera(); 
-            capturedImage.style.display = 'none'; 
+            startCamera();
+            capturedImage.style.display = 'none';
             controlsAfterCapture.classList.add('hidden');
-            
+
             resultArea.innerHTML = i18n[currentTargetLanguage].resultPlaceholder + `<button class="copy-button" data-clipboard-target-id="resultArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
             updateCopyButtonVisibility(resultArea, 'resultPlaceholder');
             tellMeMoreButton.classList.add('hidden');
@@ -903,12 +906,13 @@ If the image content does not appear to be a menu, or the previous translation i
         async function callGeminiAPI(promptText, base64ImageData, resultDisplayElement, loadingElement, responsePrefixKey, placeholderTextKey) {
             if (!base64ImageData) {
                 alert(i18n[currentTargetLanguage].alert_noImage);
-                return; 
+                return;
             }
-            if (!currentApiKey) {
-                alert(i18n[currentTargetLanguage].alert_apiKeyRequired);
-                return; 
-            }
+            // API Key check removed as it's hardcoded
+            // if (!currentApiKey) {
+            //     alert(i18n[currentTargetLanguage].alert_apiKeyRequired);
+            //     return;
+            // }
 
             const responsePrefix = i18n[currentTargetLanguage][responsePrefixKey];
             const placeholderText = i18n[currentTargetLanguage][placeholderTextKey];
@@ -917,13 +921,13 @@ If the image content does not appear to be a menu, or the previous translation i
             resultDisplayElement.innerHTML = responsePrefix + `<button class="copy-button" data-clipboard-target-id="${resultDisplayElement.id}" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
             updateCopyButtonVisibility(resultDisplayElement, placeholderTextKey);
             resultDisplayElement.classList.remove('hidden');
-            
-            if (resultDisplayElement === resultArea) { 
+
+            if (resultDisplayElement === resultArea) {
                  tellMeMoreButton.classList.add('hidden');
             }
 
             const STREAM_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:streamGenerateContent?key=${currentApiKey}&alt=sse`;
-            
+
             const requestBody = {
                 contents: [{
                     parts: [
@@ -937,13 +941,16 @@ If the image content does not appear to be a menu, or the previous translation i
                     ]
                 }],
                  generationConfig: {
-                   temperature: 0.3, 
+                   temperature: 0,
                    maxOutputTokens: 4096,
+                   thinkingConfig: { // MODIFICATION: Added thinkingConfig
+                       thinkingBudget: 0 // MODIFICATION: Set thinkingBudget to 0
+                   }
                  }
             };
 
             let accumulatedText = "";
-            let successStreaming = false; 
+            let successStreaming = false;
 
             try {
                 const response = await fetch(STREAM_API_URL, {
@@ -962,7 +969,7 @@ If the image content does not appear to be a menu, or the previous translation i
                     }
                     throw new Error(`HTTP error! status: ${response.status} - ${errorJsonMessage}`);
                 }
-                
+
                 if (!response.body) {
                     throw new Error("Response body is null, streaming not possible.");
                 }
@@ -1000,15 +1007,15 @@ If the image content does not appear to be a menu, or the previous translation i
 
                         if (line.startsWith('data:')) {
                             try {
-                                const jsonString = line.substring(line.indexOf('{')); 
+                                const jsonString = line.substring(line.indexOf('{'));
                                 const jsonData = JSON.parse(jsonString);
-                                
+
                                 if (jsonData.candidates && jsonData.candidates[0].content && jsonData.candidates[0].content.parts && jsonData.candidates[0].content.parts[0].text) {
                                     const textChunk = jsonData.candidates[0].content.parts[0].text;
                                     accumulatedText += textChunk;
                                     resultDisplayElement.innerHTML = responsePrefix + marked.parse(accumulatedText) + `<button class="copy-button" data-clipboard-target-id="${resultDisplayElement.id}" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
                                     updateCopyButtonVisibility(resultDisplayElement, placeholderTextKey);
-                                    resultDisplayElement.scrollTop = resultDisplayElement.scrollHeight; 
+                                    resultDisplayElement.scrollTop = resultDisplayElement.scrollHeight;
                                     successStreaming = true;
                                 } else if (jsonData.promptFeedback && jsonData.promptFeedback.blockReason) {
                                     let blockMessage = `${i18n[currentTargetLanguage].alert_apiError} Blocked by API. Reason: ${jsonData.promptFeedback.blockReason}`;
@@ -1026,11 +1033,11 @@ If the image content does not appear to be a menu, or the previous translation i
                         }
                     }
                 }
-                
+
                 if (resultDisplayElement === resultArea && successStreaming) {
                     const isNotMenuResponse = accumulatedText.includes("不是一份菜單") || accumulatedText.includes("not a menu");
-                    const isBlockedResponse = accumulatedText.includes("Blocked by API"); 
-                    
+                    const isBlockedResponse = accumulatedText.includes("Blocked by API");
+
                     if (!isNotMenuResponse && !isBlockedResponse) {
                          tellMeMoreButton.classList.remove('hidden');
                     } else {
@@ -1044,12 +1051,12 @@ If the image content does not appear to be a menu, or the previous translation i
                 if (accumulatedText.trim() === "") {
                     resultDisplayElement.innerHTML = responsePrefix + errorHtml + `<button class="copy-button" data-clipboard-target-id="${resultDisplayElement.id}" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
                 } else {
-                    resultDisplayElement.innerHTML += `<hr>${errorHtml}`; 
+                    resultDisplayElement.innerHTML += `<hr>${errorHtml}`;
                 }
                 updateCopyButtonVisibility(resultDisplayElement, placeholderTextKey);
 
                 if (resultDisplayElement === resultArea) tellMeMoreButton.classList.add('hidden');
-                successStreaming = false; 
+                successStreaming = false;
             } finally {
                 loadingElement.classList.add('hidden');
                 if (!successStreaming && (resultDisplayElement.innerText.trim() === responsePrefix.trim() || resultDisplayElement.innerText.trim() === '')) {
@@ -1065,11 +1072,11 @@ If the image content does not appear to be a menu, or the previous translation i
         describeButton.addEventListener('click', async () => {
             currentRequestMode = 'describe';
             const base64ImageData = capturedImage.src.split(',')[1];
-            tellMeMoreButton.classList.add('hidden'); 
+            tellMeMoreButton.classList.add('hidden');
             moreInfoArea.classList.add('hidden');
             moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder + `<button class="copy-button" data-clipboard-target-id="moreInfoArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
             updateCopyButtonVisibility(moreInfoArea, 'moreInfoPlaceholder');
-            
+
             await callGeminiAPI(
                 getProcessedPrompt('apiPrompt'),
                 base64ImageData,
@@ -1100,18 +1107,18 @@ If the image content does not appear to be a menu, or the previous translation i
 
         tellMeMoreButton.addEventListener('click', async () => {
             const base64ImageData = capturedImage.src.split(',')[1];
-            moreInfoArea.classList.remove('hidden'); 
+            moreInfoArea.classList.remove('hidden');
             moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder + `<button class="copy-button" data-clipboard-target-id="moreInfoArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
             updateCopyButtonVisibility(moreInfoArea, 'moreInfoPlaceholder');
 
 
             let moreInfoPromptKey = currentRequestMode === 'menu' ? 'apiPromptMenuMoreInfo' : 'apiPromptMoreInfo';
-            
+
             await callGeminiAPI(
                 getProcessedPrompt(moreInfoPromptKey),
                 base64ImageData,
                 moreInfoArea,
-                moreInfoLoadingIndicator, 
+                moreInfoLoadingIndicator,
                 'moreInfoPrefix',
                 'moreInfoPlaceholder'
             );
@@ -1121,76 +1128,109 @@ If the image content does not appear to be a menu, or the previous translation i
             stopCameraStream();
             appView.classList.add('hidden');
             settingsView.classList.remove('hidden');
-            
-            capturedImage.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="; 
-            capturedImage.style.display = 'none'; 
+
+            capturedImage.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+            capturedImage.style.display = 'none';
             controlsAfterCapture.classList.add('hidden');
-            
+
             resultArea.innerHTML = i18n[currentTargetLanguage].resultPlaceholder + `<button class="copy-button" data-clipboard-target-id="resultArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
             updateCopyButtonVisibility(resultArea, 'resultPlaceholder');
             tellMeMoreButton.classList.add('hidden');
             moreInfoArea.classList.add('hidden');
             moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder + `<button class="copy-button" data-clipboard-target-id="moreInfoArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
             updateCopyButtonVisibility(moreInfoArea, 'moreInfoPlaceholder');
-            
-            cameraViewDiv.classList.remove('hidden'); 
-            videoPreview.classList.remove('hidden'); 
-            captureButton.classList.remove('hidden'); 
+
+            cameraViewDiv.classList.remove('hidden');
+            videoPreview.classList.remove('hidden');
+            captureButton.classList.remove('hidden');
             uploadButton.classList.remove('hidden');
-            zoomControls.classList.add('hidden'); 
+            zoomControls.classList.add('hidden');
         });
 
-        // Initial load
-        loadSettings();
+        // Event listener for "Add to Home Screen" button
+        window.addEventListener('beforeinstallprompt', (event) => {
+            event.preventDefault(); // Prevent the mini-infobar from appearing on mobile
+            deferredInstallPrompt = event;
+            // You can optionally show a custom UI element here to indicate installability,
+            // or modify the existing addToHomeScreenButton visibility.
+            // For now, it's always visible on the settings page as per current UI.
+            console.log('`beforeinstallprompt` event was fired.');
+            // This is where you might change addToHomeScreenButton.style.display if it was initially 'none'
+            // addToHomeScreenButton.style.display = 'block'; // Or 'inline-block'
+        });
 
-        // --- MODIFICATION START: Event delegation for copy buttons ---
+        // Event listener for when the app is installed
+        window.addEventListener('appinstalled', () => {
+            console.log('PWA was installed!');
+            // You might want to hide the "Add to Home Screen" button after installation
+            if (addToHomeScreenButton) {
+                addToHomeScreenButton.style.display = 'none';
+            }
+        });
+
+        addToHomeScreenButton.addEventListener('click', async () => {
+            if (deferredInstallPrompt) {
+                console.log('Triggering A2HS prompt...');
+                deferredInstallPrompt.prompt(); // Show the install prompt
+                const { outcome } = await deferredInstallPrompt.userChoice;
+                console.log(`User response to the A2HS prompt: ${outcome}`);
+                if (outcome === 'accepted') {
+                    console.log('User accepted the A2HS prompt');
+                    // The 'appinstalled' event listener will handle hiding the button
+                } else {
+                    console.log('User dismissed the A2HS prompt');
+                    // If dismissed, the button might stay visible for a retry, or you could hide it.
+                    // Based on the current alert logic, it implies keeping it visible so the alert path is taken next.
+                }
+                deferredInstallPrompt = null; // The prompt can only be used once
+            } else {
+                // deferredInstallPrompt is null, meaning:
+                // 1. The PWA is already installed.
+                // 2. The user has previously dismissed the prompt and the browser decided not to show it again yet.
+                // 3. The PWA criteria (manifest, service worker, HTTPS, engagement heuristic) are not met.
+                // 4. The browser doesn't support the A2HS API.
+                alert(i18n[currentTargetLanguage].alert_addToHomeScreenManually || '此瀏覽器可能不支援自動新增，或您已安裝/拒絕過。請嘗試透過瀏覽器選單手動「新增至主畫面」。');
+                console.log('Add to Home Screen button clicked, but no deferredInstallPrompt available. PWA might already be installed or criteria not met.');
+            }
+        });
+
+
         appView.addEventListener('click', async (event) => {
-            const button = event.target.closest('.copy-button'); // Check if the clicked element or its ancestor is a copy button
+            const button = event.target.closest('.copy-button');
             if (button) {
                 const targetId = button.getAttribute('data-clipboard-target-id');
                 const targetElement = document.getElementById(targetId);
 
                 if (targetElement) {
-                    // Clone the target element to safely remove the copy button from the text to be copied
                     const clone = targetElement.cloneNode(true);
                     const buttonInClone = clone.querySelector('.copy-button');
                     if (buttonInClone) {
                         buttonInClone.remove();
                     }
-
-                    let textToCopy = clone.innerText || clone.textContent || ""; 
-
-                    // Use currentTargetLanguage which should be up-to-date from UI interactions
-                    const lang = currentTargetLanguage; 
-
+                    let textToCopy = clone.innerText || clone.textContent || "";
+                    const lang = currentTargetLanguage;
                     const prefixes = [
                         i18n[lang]?.apiResponsePrefix,
                         i18n[lang]?.moreInfoPrefix
-                    ].filter(Boolean); // Filter out undefined/null prefixes if lang or prefix is not found
+                    ].filter(Boolean);
 
                     for (const prefix of prefixes) {
                         if (textToCopy.startsWith(prefix)) {
                             textToCopy = textToCopy.substring(prefix.length).trim();
-                            break; // Assume only one prefix will match
+                            break;
                         }
                     }
 
                     if (textToCopy.trim()) {
                         try {
                             await navigator.clipboard.writeText(textToCopy);
-                            
                             const originalTextKey = 'copyButtonText';
                             const copiedTextKey = 'copiedButtonText';
-                            
-                            // Use optional chaining and default values for robustness
                             button.textContent = i18n[lang]?.[copiedTextKey] || '已複製!';
-                            
                             setTimeout(() => {
-                                // Re-fetch current language at the moment of restoring text, in case it changed
                                 const currentLangAfterTimeout = currentTargetLanguage;
                                 button.textContent = i18n[currentLangAfterTimeout]?.[originalTextKey] || '複製';
                             }, 2000);
-
                         } catch (err) {
                             console.error('Failed to copy: ', err);
                             const failedAlertKey = 'copyFailedAlert';
@@ -1198,22 +1238,43 @@ If the image content does not appear to be a menu, or the previous translation i
                         }
                     } else {
                         const noContentAlertKey = 'noContentCopyAlert';
-                        alert(i18n[lang]?.[noContentAlertKey] || '沒有內容可以複製。');
+                        alert(i18n[lang]?.[noContentCopyAlert] || '沒有內容可以複製。');
                     }
                 }
             }
         });
-        // --- MODIFICATION END ---
 
+        // Initial load and app start logic
+        loadSettings(); // Loads language and updates UI for settings view
 
-        if (currentApiKey && false) { 
-             settingsView.classList.add('hidden');
-             appView.classList.remove('hidden');
-             startCamera();
+        const lastUsedLanguage = localStorage.getItem('targetLanguage');
+        if (lastUsedLanguage) {
+            // Language is set, skip settings and go to app view
+            settingsView.classList.add('hidden');
+            appView.classList.remove('hidden');
+            // Ensure app view UI strings are also up-to-date based on loaded language
+            // updateUIStrings(lastUsedLanguage); // loadSettings already calls this
+            startCamera();
         } else {
+            // First time use or language not set, show settings view
             settingsView.classList.remove('hidden');
             appView.classList.add('hidden');
+            // updateUIStrings for settings view is handled by loadSettings
         }
+
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js') // Assuming sw.js is in the same directory
+                    .then(registration => {
+                        console.log('Service Worker registered successfully with scope:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('Service Worker registration failed:', error);
+                    });
+            });
+        }
+
     </script>
 </body>
 </html>
