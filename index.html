@@ -4,11 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AI 圖像辨識翻譯</title>
-    <!-- PWA Manifest Link -->
     <link rel="manifest" href="./manifest.json">
-    <!-- Theme Color for browsers -->
     <meta name="theme-color" content="#007bff">
-    <!-- Apple Touch Icon for iOS Safari -->
     <link rel="apple-touch-icon" href="./112992.jpg">
     <style>
         :root {
@@ -64,7 +61,7 @@
             font-size: 1em;
         }
         input[type="range"] {
-             padding: 0; /* Range input padding adjustment */
+            padding: 0; /* Range input padding adjustment */
         }
         button {
             background-color: var(--primary-color);
@@ -238,7 +235,6 @@
 <body>
     <div id="settingsView" class="container">
         <h1>設定</h1>
-        <!-- API Key input removed -->
         <div>
             <label for="targetLanguage" data-i18n="languageLabel">目標語言:</label>
             <select id="targetLanguage">
@@ -333,7 +329,7 @@
 
         let stream;
         let videoTrack;
-        let currentApiKey = 'AIzaSyA6fYT13t6D20wJZj_XRvHIdNHv5Jb8dt8'; // API Key hardcoded
+        let currentApiKey = 'AIzaSyA6fYT13t6D20wJZj_XRvHIdNHv5Jb8dt8'; // API Key hardcoded per user request
         let currentTargetLanguage = 'zh-TW';
         let currentRequestMode = 'describe';
         let deferredInstallPrompt = null;
@@ -819,7 +815,7 @@ If the image content does not appear to be a menu, or the previous translation i
                         .then(() => console.log("Single-shot focus triggered."))
                         .catch(e => console.warn("Single-shot focus error:", e));
                 } else if (focusModes.includes('continuous')) {
-                     videoTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] })
+                       videoTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] })
                         .catch(e => console.warn("Re-applying continuous focus error:", e));
                 }
             }
@@ -902,17 +898,15 @@ If the image content does not appear to be a menu, or the previous translation i
                 alert(i18n[currentTargetLanguage].alert_noImage);
             }
         });
-
-        async function callGeminiAPI(promptText, base64ImageData, resultDisplayElement, loadingElement, responsePrefixKey, placeholderTextKey) {
+        
+        // =================================================================
+        // ===== MODIFICATION START: callGeminiAPI function is updated =====
+        // =================================================================
+        async function callGeminiAPI(promptText, base64ImageData, resultDisplayElement, loadingElement, responsePrefixKey, placeholderTextKey, modelName, enableThinking) {
             if (!base64ImageData) {
                 alert(i18n[currentTargetLanguage].alert_noImage);
                 return;
             }
-            // API Key check removed as it's hardcoded
-            // if (!currentApiKey) {
-            //     alert(i18n[currentTargetLanguage].alert_apiKeyRequired);
-            //     return;
-            // }
 
             const responsePrefix = i18n[currentTargetLanguage][responsePrefixKey];
             const placeholderText = i18n[currentTargetLanguage][placeholderTextKey];
@@ -923,11 +917,29 @@ If the image content does not appear to be a menu, or the previous translation i
             resultDisplayElement.classList.remove('hidden');
 
             if (resultDisplayElement === resultArea) {
-                 tellMeMoreButton.classList.add('hidden');
+                tellMeMoreButton.classList.add('hidden');
             }
 
-            const STREAM_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:streamGenerateContent?key=${currentApiKey}&alt=sse`;
+            // MODIFICATION: Use the passed modelName parameter to build the URL
+            const STREAM_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?key=${currentApiKey}&alt=sse`;
 
+            // MODIFICATION: Conditionally build the generationConfig
+            const generationConfig = {
+                temperature: 0,
+                maxOutputTokens: 4096,
+            };
+
+            if (enableThinking) {
+                // To enable thinking, add an empty thinkingConfig object.
+                // The API will use its default thinking capabilities.
+                generationConfig.thinkingConfig = {};
+                console.log(`Calling model ${modelName} with thinking ENABLED.`);
+            } else {
+                // To explicitly disable thinking.
+                generationConfig.thinkingConfig = { thinkingBudget: 0 };
+                console.log(`Calling model ${modelName} with thinking DISABLED.`);
+            }
+            
             const requestBody = {
                 contents: [{
                     parts: [
@@ -940,13 +952,7 @@ If the image content does not appear to be a menu, or the previous translation i
                         }
                     ]
                 }],
-                 generationConfig: {
-                   temperature: 0,
-                   maxOutputTokens: 4096,
-                   thinkingConfig: { // MODIFICATION: Added thinkingConfig
-                       thinkingBudget: 0 // MODIFICATION: Set thinkingBudget to 0
-                   }
-                 }
+                generationConfig: generationConfig // Use the dynamically created config
             };
 
             let accumulatedText = "";
@@ -1067,6 +1073,9 @@ If the image content does not appear to be a menu, or the previous translation i
                 updateCopyButtonVisibility(resultDisplayElement, placeholderTextKey);
             }
         }
+        // ===============================================================
+        // ===== MODIFICATION END: callGeminiAPI function is updated =====
+        // ===============================================================
 
 
         describeButton.addEventListener('click', async () => {
@@ -1077,13 +1086,16 @@ If the image content does not appear to be a menu, or the previous translation i
             moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder + `<button class="copy-button" data-clipboard-target-id="moreInfoArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
             updateCopyButtonVisibility(moreInfoArea, 'moreInfoPlaceholder');
 
+            // MODIFICATION: Call with specific model and thinking disabled
             await callGeminiAPI(
                 getProcessedPrompt('apiPrompt'),
                 base64ImageData,
                 resultArea,
                 loadingIndicator,
                 'apiResponsePrefix',
-                'resultPlaceholder'
+                'resultPlaceholder',
+                'gemini-2.5-flash-lite', // Quick answer model
+                false                     // Disable thinking
             );
         });
 
@@ -1095,13 +1107,16 @@ If the image content does not appear to be a menu, or the previous translation i
             moreInfoArea.innerHTML = i18n[currentTargetLanguage].moreInfoPlaceholder + `<button class="copy-button" data-clipboard-target-id="moreInfoArea" title="${i18n[currentTargetLanguage].copyButtonText || '複製內容'}" style="display:none;">${i18n[currentTargetLanguage].copyButtonText || '複製'}</button>`;
             updateCopyButtonVisibility(moreInfoArea, 'moreInfoPlaceholder');
 
+            // MODIFICATION: Call with specific model and thinking disabled
             await callGeminiAPI(
                 getProcessedPrompt('apiPromptMenuInitial'),
                 base64ImageData,
                 resultArea,
                 loadingIndicator,
                 'apiResponsePrefix',
-                'resultPlaceholder'
+                'resultPlaceholder',
+                'gemini-2.5-flash-lite', // Quick answer model
+                false                     // Disable thinking
             );
         });
 
@@ -1114,13 +1129,16 @@ If the image content does not appear to be a menu, or the previous translation i
 
             let moreInfoPromptKey = currentRequestMode === 'menu' ? 'apiPromptMenuMoreInfo' : 'apiPromptMoreInfo';
 
+            // MODIFICATION: Call with specific model and thinking enabled
             await callGeminiAPI(
                 getProcessedPrompt(moreInfoPromptKey),
                 base64ImageData,
                 moreInfoArea,
                 moreInfoLoadingIndicator,
                 'moreInfoPrefix',
-                'moreInfoPlaceholder'
+                'moreInfoPlaceholder',
+                'gemini-2.5-flash', // Detailed answer model
+                true                // Enable thinking
             );
         });
 
@@ -1238,7 +1256,7 @@ If the image content does not appear to be a menu, or the previous translation i
                         }
                     } else {
                         const noContentAlertKey = 'noContentCopyAlert';
-                        alert(i18n[lang]?.[noContentCopyAlert] || '沒有內容可以複製。');
+                        alert(i18n[lang]?.[noContentAlertKey] || '沒有內容可以複製。');
                     }
                 }
             }
